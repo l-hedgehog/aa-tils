@@ -1,0 +1,282 @@
+[auto] available IPv4: ['172.17.0.1', '10.1.0.64', '127.0.0.1']
+OS: linux | port=44932 | src=many (connect sweep)
+
+########## TARGET 127.0.0.1  (loopback: 127.0.0.1 sockets hear it) ##########
+
+== target=127.0.0.1 | src=many | connect=none ==
+   -- no connect -> address rules make ONE socket win (no distribution)
+    addr1 reuse1     addr2 reuse2 |     b2/err |               delivery | order
+-------------------------------------------------------------------------------
+127.0.0.1   none 127.0.0.1   none | EADDRINUSE |   -  (skip: second not bound)
+127.0.0.1   none 127.0.0.1   addr | EADDRINUSE |   -  (skip: second not bound)
+127.0.0.1   none 127.0.0.1   port | EADDRINUSE |   -  (skip: second not bound)
+127.0.0.1   none 127.0.0.1   both | EADDRINUSE |   -  (skip: second not bound)
+127.0.0.1   addr 127.0.0.1   none | EADDRINUSE |   -  (skip: second not bound)
+127.0.0.1   addr 127.0.0.1   addr |          Y |           | A+→2=26   | A→2,B→2,C→2,D→2,E→2,F→2,G→2,H→2,I→2,J→2,K→2,L→2,M→2,N→2,O→2,P→2,Q→2,R→2,S→2,T→2,U→2,V→2,W→2,X→2,Y→2,Z→2
+127.0.0.1   addr 127.0.0.1   port | EADDRINUSE |   -  (skip: second not bound)
+127.0.0.1   addr 127.0.0.1   both |          Y |           | A+→2=26   | A→2,B→2,C→2,D→2,E→2,F→2,G→2,H→2,I→2,J→2,K→2,L→2,M→2,N→2,O→2,P→2,Q→2,R→2,S→2,T→2,U→2,V→2,W→2,X→2,Y→2,Z→2
+127.0.0.1   port 127.0.0.1   none | EADDRINUSE |   -  (skip: second not bound)
+127.0.0.1   port 127.0.0.1   addr | EADDRINUSE |   -  (skip: second not bound)
+127.0.0.1   port 127.0.0.1   port |          Y | A+→1=10   | B+→2=16   | A→1,B→2,E→1,C→2,K→1,D→2,M→1,F→2,O→1,G→2,Q→1,H→2,R→1,I→2,S→1,J→2,T→1,L→2,Y→1,N→2,P→2,U→2,V→2,W→2,X→2,Z→2
+127.0.0.1   port 127.0.0.1   both |          Y | A+→1=13   | B+→2=13   | A→1,B→2,D→1,C→2,E→1,H→2,F→1,I→2,G→1,L→2,J→1,M→2,K→1,N→2,O→1,Q→2,P→1,R→2,S→1,T→2,U→1,V→2,X→1,W→2,Y→1,Z→2
+127.0.0.1   both 127.0.0.1   none | EADDRINUSE |   -  (skip: second not bound)
+127.0.0.1   both 127.0.0.1   addr |          Y |           | A+→2=26   | A→2,B→2,C→2,D→2,E→2,F→2,G→2,H→2,I→2,J→2,K→2,L→2,M→2,N→2,O→2,P→2,Q→2,R→2,S→2,T→2,U→2,V→2,W→2,X→2,Y→2,Z→2
+127.0.0.1   both 127.0.0.1   port |          Y | B+→1=14   | A+→2=12   | B→1,A→2,C→1,D→2,E→1,G→2,F→1,I→2,H→1,J→2,K→1,S→2,L→1,T→2,M→1,U→2,N→1,V→2,O→1,W→2,P→1,Y→2,Q→1,Z→2,R→1,X→1
+127.0.0.1   both 127.0.0.1   both |          Y | B+→1=16   | A+→2=10   | B→1,A→2,C→1,E→2,D→1,G→2,F→1,J→2,H→1,K→2,I→1,P→2,L→1,Q→2,M→1,R→2,N→1,T→2,O→1,Z→2,S→1,U→1,V→1,W→1,X→1,Y→1
+  0.0.0.0   none   0.0.0.0   none | EADDRINUSE |   -  (skip: second not bound)
+  0.0.0.0   none   0.0.0.0   addr | EADDRINUSE |   -  (skip: second not bound)
+  0.0.0.0   none   0.0.0.0   port | EADDRINUSE |   -  (skip: second not bound)
+  0.0.0.0   none   0.0.0.0   both | EADDRINUSE |   -  (skip: second not bound)
+  0.0.0.0   addr   0.0.0.0   none | EADDRINUSE |   -  (skip: second not bound)
+  0.0.0.0   addr   0.0.0.0   addr |          Y |           | A+→2=26   | A→2,B→2,C→2,D→2,E→2,F→2,G→2,H→2,I→2,J→2,K→2,L→2,M→2,N→2,O→2,P→2,Q→2,R→2,S→2,T→2,U→2,V→2,W→2,X→2,Y→2,Z→2
+  0.0.0.0   addr   0.0.0.0   port | EADDRINUSE |   -  (skip: second not bound)
+  0.0.0.0   addr   0.0.0.0   both |          Y |           | A+→2=26   | A→2,B→2,C→2,D→2,E→2,F→2,G→2,H→2,I→2,J→2,K→2,L→2,M→2,N→2,O→2,P→2,Q→2,R→2,S→2,T→2,U→2,V→2,W→2,X→2,Y→2,Z→2
+  0.0.0.0   port   0.0.0.0   none | EADDRINUSE |   -  (skip: second not bound)
+  0.0.0.0   port   0.0.0.0   addr | EADDRINUSE |   -  (skip: second not bound)
+  0.0.0.0   port   0.0.0.0   port |          Y | A+→1=12   | B+→2=14   | A→1,B→2,I→1,C→2,K→1,D→2,Q→1,E→2,R→1,F→2,T→1,G→2,U→1,H→2,V→1,J→2,W→1,L→2,X→1,M→2,Y→1,N→2,Z→1,O→2,P→2,S→2
+  0.0.0.0   port   0.0.0.0   both |          Y | B+→1=13   | A+→2=13   | B→1,A→2,C→1,F→2,D→1,G→2,E→1,H→2,I→1,L→2,J→1,N→2,K→1,O→2,M→1,R→2,P→1,S→2,Q→1,T→2,V→1,U→2,W→1,X→2,Y→1,Z→2
+  0.0.0.0   both   0.0.0.0   none | EADDRINUSE |   -  (skip: second not bound)
+  0.0.0.0   both   0.0.0.0   addr |          Y |           | A+→2=26   | A→2,B→2,C→2,D→2,E→2,F→2,G→2,H→2,I→2,J→2,K→2,L→2,M→2,N→2,O→2,P→2,Q→2,R→2,S→2,T→2,U→2,V→2,W→2,X→2,Y→2,Z→2
+  0.0.0.0   both   0.0.0.0   port |          Y | B+→1=13   | A+→2=13   | B→1,A→2,F→1,C→2,G→1,D→2,I→1,E→2,K→1,H→2,L→1,J→2,M→1,O→2,N→1,P→2,T→1,Q→2,U→1,R→2,V→1,S→2,Y→1,W→2,Z→1,X→2
+  0.0.0.0   both   0.0.0.0   both |          Y | A+→1=14   | D+→2=12   | A→1,D→2,B→1,H→2,C→1,I→2,E→1,J→2,F→1,K→2,G→1,M→2,L→1,O→2,N→1,R→2,P→1,T→2,Q→1,U→2,S→1,V→2,W→1,Z→2,X→1,Y→1
+127.0.0.1   none   0.0.0.0   none | EADDRINUSE |   -  (skip: second not bound)
+127.0.0.1   none   0.0.0.0   addr | EADDRINUSE |   -  (skip: second not bound)
+127.0.0.1   none   0.0.0.0   port | EADDRINUSE |   -  (skip: second not bound)
+127.0.0.1   none   0.0.0.0   both | EADDRINUSE |   -  (skip: second not bound)
+127.0.0.1   addr   0.0.0.0   none | EADDRINUSE |   -  (skip: second not bound)
+127.0.0.1   addr   0.0.0.0   addr |          Y | A+→1=26   |           | A→1,B→1,C→1,D→1,E→1,F→1,G→1,H→1,I→1,J→1,K→1,L→1,M→1,N→1,O→1,P→1,Q→1,R→1,S→1,T→1,U→1,V→1,W→1,X→1,Y→1,Z→1
+127.0.0.1   addr   0.0.0.0   port | EADDRINUSE |   -  (skip: second not bound)
+127.0.0.1   addr   0.0.0.0   both |          Y | A+→1=26   |           | A→1,B→1,C→1,D→1,E→1,F→1,G→1,H→1,I→1,J→1,K→1,L→1,M→1,N→1,O→1,P→1,Q→1,R→1,S→1,T→1,U→1,V→1,W→1,X→1,Y→1,Z→1
+127.0.0.1   port   0.0.0.0   none | EADDRINUSE |   -  (skip: second not bound)
+127.0.0.1   port   0.0.0.0   addr | EADDRINUSE |   -  (skip: second not bound)
+127.0.0.1   port   0.0.0.0   port |          Y | A+→1=26   |           | A→1,B→1,C→1,D→1,E→1,F→1,G→1,H→1,I→1,J→1,K→1,L→1,M→1,N→1,O→1,P→1,Q→1,R→1,S→1,T→1,U→1,V→1,W→1,X→1,Y→1,Z→1
+127.0.0.1   port   0.0.0.0   both |          Y | A+→1=26   |           | A→1,B→1,C→1,D→1,E→1,F→1,G→1,H→1,I→1,J→1,K→1,L→1,M→1,N→1,O→1,P→1,Q→1,R→1,S→1,T→1,U→1,V→1,W→1,X→1,Y→1,Z→1
+127.0.0.1   both   0.0.0.0   none | EADDRINUSE |   -  (skip: second not bound)
+127.0.0.1   both   0.0.0.0   addr |          Y | A+→1=26   |           | A→1,B→1,C→1,D→1,E→1,F→1,G→1,H→1,I→1,J→1,K→1,L→1,M→1,N→1,O→1,P→1,Q→1,R→1,S→1,T→1,U→1,V→1,W→1,X→1,Y→1,Z→1
+127.0.0.1   both   0.0.0.0   port |          Y | A+→1=26   |           | A→1,B→1,C→1,D→1,E→1,F→1,G→1,H→1,I→1,J→1,K→1,L→1,M→1,N→1,O→1,P→1,Q→1,R→1,S→1,T→1,U→1,V→1,W→1,X→1,Y→1,Z→1
+127.0.0.1   both   0.0.0.0   both |          Y | A+→1=26   |           | A→1,B→1,C→1,D→1,E→1,F→1,G→1,H→1,I→1,J→1,K→1,L→1,M→1,N→1,O→1,P→1,Q→1,R→1,S→1,T→1,U→1,V→1,W→1,X→1,Y→1,Z→1
+  0.0.0.0   none 127.0.0.1   none | EADDRINUSE |   -  (skip: second not bound)
+  0.0.0.0   none 127.0.0.1   addr | EADDRINUSE |   -  (skip: second not bound)
+  0.0.0.0   none 127.0.0.1   port | EADDRINUSE |   -  (skip: second not bound)
+  0.0.0.0   none 127.0.0.1   both | EADDRINUSE |   -  (skip: second not bound)
+  0.0.0.0   addr 127.0.0.1   none | EADDRINUSE |   -  (skip: second not bound)
+  0.0.0.0   addr 127.0.0.1   addr |          Y |           | A+→2=26   | A→2,B→2,C→2,D→2,E→2,F→2,G→2,H→2,I→2,J→2,K→2,L→2,M→2,N→2,O→2,P→2,Q→2,R→2,S→2,T→2,U→2,V→2,W→2,X→2,Y→2,Z→2
+  0.0.0.0   addr 127.0.0.1   port | EADDRINUSE |   -  (skip: second not bound)
+  0.0.0.0   addr 127.0.0.1   both |          Y |           | A+→2=26   | A→2,B→2,C→2,D→2,E→2,F→2,G→2,H→2,I→2,J→2,K→2,L→2,M→2,N→2,O→2,P→2,Q→2,R→2,S→2,T→2,U→2,V→2,W→2,X→2,Y→2,Z→2
+  0.0.0.0   port 127.0.0.1   none | EADDRINUSE |   -  (skip: second not bound)
+  0.0.0.0   port 127.0.0.1   addr | EADDRINUSE |   -  (skip: second not bound)
+  0.0.0.0   port 127.0.0.1   port |          Y |           | A+→2=26   | A→2,B→2,C→2,D→2,E→2,F→2,G→2,H→2,I→2,J→2,K→2,L→2,M→2,N→2,O→2,P→2,Q→2,R→2,S→2,T→2,U→2,V→2,W→2,X→2,Y→2,Z→2
+  0.0.0.0   port 127.0.0.1   both |          Y |           | A+→2=26   | A→2,B→2,C→2,D→2,E→2,F→2,G→2,H→2,I→2,J→2,K→2,L→2,M→2,N→2,O→2,P→2,Q→2,R→2,S→2,T→2,U→2,V→2,W→2,X→2,Y→2,Z→2
+  0.0.0.0   both 127.0.0.1   none | EADDRINUSE |   -  (skip: second not bound)
+  0.0.0.0   both 127.0.0.1   addr |          Y |           | A+→2=26   | A→2,B→2,C→2,D→2,E→2,F→2,G→2,H→2,I→2,J→2,K→2,L→2,M→2,N→2,O→2,P→2,Q→2,R→2,S→2,T→2,U→2,V→2,W→2,X→2,Y→2,Z→2
+  0.0.0.0   both 127.0.0.1   port |          Y |           | A+→2=26   | A→2,B→2,C→2,D→2,E→2,F→2,G→2,H→2,I→2,J→2,K→2,L→2,M→2,N→2,O→2,P→2,Q→2,R→2,S→2,T→2,U→2,V→2,W→2,X→2,Y→2,Z→2
+  0.0.0.0   both 127.0.0.1   both |          Y |           | A+→2=26   | A→2,B→2,C→2,D→2,E→2,F→2,G→2,H→2,I→2,J→2,K→2,L→2,M→2,N→2,O→2,P→2,Q→2,R→2,S→2,T→2,U→2,V→2,W→2,X→2,Y→2,Z→2
+
+== target=127.0.0.1 | src=many | connect=auto ==
+   -- discover-then-connect (nc): first datagram's receiver pins to that source; fresh-source packets escape to the other socket
+    addr1 reuse1     addr2 reuse2 |     b2/err |               delivery | order
+-------------------------------------------------------------------------------
+127.0.0.1   none 127.0.0.1   none | EADDRINUSE |   -  (skip: second not bound)
+127.0.0.1   none 127.0.0.1   addr | EADDRINUSE |   -  (skip: second not bound)
+127.0.0.1   none 127.0.0.1   port | EADDRINUSE |   -  (skip: second not bound)
+127.0.0.1   none 127.0.0.1   both | EADDRINUSE |   -  (skip: second not bound)
+127.0.0.1   addr 127.0.0.1   none | EADDRINUSE |   -  (skip: second not bound)
+127.0.0.1   addr 127.0.0.1   addr |          Y | B+→1=25   | A+→2= 1   | A→2,B→1,C→1,D→1,E→1,F→1,G→1,H→1,I→1,J→1,K→1,L→1,M→1,N→1,O→1,P→1,Q→1,R→1,S→1,T→1,U→1,V→1,W→1,X→1,Y→1,Z→1  [auto-connected: 2]
+127.0.0.1   addr 127.0.0.1   port | EADDRINUSE |   -  (skip: second not bound)
+127.0.0.1   addr 127.0.0.1   both |          Y | B+→1=25   | A+→2= 1   | A→2,B→1,C→1,D→1,E→1,F→1,G→1,H→1,I→1,J→1,K→1,L→1,M→1,N→1,O→1,P→1,Q→1,R→1,S→1,T→1,U→1,V→1,W→1,X→1,Y→1,Z→1  [auto-connected: 2]
+127.0.0.1   port 127.0.0.1   none | EADDRINUSE |   -  (skip: second not bound)
+127.0.0.1   port 127.0.0.1   addr | EADDRINUSE |   -  (skip: second not bound)
+127.0.0.1   port 127.0.0.1   port |          Y | B+→1=25   | A+→2= 1   | A→2,B→1,C→1,D→1,E→1,F→1,G→1,H→1,I→1,J→1,K→1,L→1,M→1,N→1,O→1,P→1,Q→1,R→1,S→1,T→1,U→1,V→1,W→1,X→1,Y→1,Z→1  [auto-connected: 2]
+127.0.0.1   port 127.0.0.1   both |          Y | A+→1= 1   | B+→2=25   | A→1,B→2,C→2,D→2,E→2,F→2,G→2,H→2,I→2,J→2,K→2,L→2,M→2,N→2,O→2,P→2,Q→2,R→2,S→2,T→2,U→2,V→2,W→2,X→2,Y→2,Z→2  [auto-connected: 1]
+127.0.0.1   both 127.0.0.1   none | EADDRINUSE |   -  (skip: second not bound)
+127.0.0.1   both 127.0.0.1   addr |          Y | B+→1=25   | A+→2= 1   | A→2,B→1,C→1,D→1,E→1,F→1,G→1,H→1,I→1,J→1,K→1,L→1,M→1,N→1,O→1,P→1,Q→1,R→1,S→1,T→1,U→1,V→1,W→1,X→1,Y→1,Z→1  [auto-connected: 2]
+127.0.0.1   both 127.0.0.1   port |          Y | A+→1= 1   | B+→2=25   | A→1,B→2,C→2,D→2,E→2,F→2,G→2,H→2,I→2,J→2,K→2,L→2,M→2,N→2,O→2,P→2,Q→2,R→2,S→2,T→2,U→2,V→2,W→2,X→2,Y→2,Z→2  [auto-connected: 1]
+127.0.0.1   both 127.0.0.1   both |          Y | B+→1=25   | A+→2= 1   | A→2,B→1,C→1,D→1,E→1,F→1,G→1,H→1,I→1,J→1,K→1,L→1,M→1,N→1,O→1,P→1,Q→1,R→1,S→1,T→1,U→1,V→1,W→1,X→1,Y→1,Z→1  [auto-connected: 2]
+  0.0.0.0   none   0.0.0.0   none | EADDRINUSE |   -  (skip: second not bound)
+  0.0.0.0   none   0.0.0.0   addr | EADDRINUSE |   -  (skip: second not bound)
+  0.0.0.0   none   0.0.0.0   port | EADDRINUSE |   -  (skip: second not bound)
+  0.0.0.0   none   0.0.0.0   both | EADDRINUSE |   -  (skip: second not bound)
+  0.0.0.0   addr   0.0.0.0   none | EADDRINUSE |   -  (skip: second not bound)
+  0.0.0.0   addr   0.0.0.0   addr |          Y | B+→1=25   | A+→2= 1   | A→2,B→1,C→1,D→1,E→1,F→1,G→1,H→1,I→1,J→1,K→1,L→1,M→1,N→1,O→1,P→1,Q→1,R→1,S→1,T→1,U→1,V→1,W→1,X→1,Y→1,Z→1  [auto-connected: 2]
+  0.0.0.0   addr   0.0.0.0   port | EADDRINUSE |   -  (skip: second not bound)
+  0.0.0.0   addr   0.0.0.0   both |          Y | B+→1=25   | A+→2= 1   | A→2,B→1,C→1,D→1,E→1,F→1,G→1,H→1,I→1,J→1,K→1,L→1,M→1,N→1,O→1,P→1,Q→1,R→1,S→1,T→1,U→1,V→1,W→1,X→1,Y→1,Z→1  [auto-connected: 2]
+  0.0.0.0   port   0.0.0.0   none | EADDRINUSE |   -  (skip: second not bound)
+  0.0.0.0   port   0.0.0.0   addr | EADDRINUSE |   -  (skip: second not bound)
+  0.0.0.0   port   0.0.0.0   port |          Y | A+→1= 1   | B+→2=25   | A→1,B→2,C→2,D→2,E→2,F→2,G→2,H→2,I→2,J→2,K→2,L→2,M→2,N→2,O→2,P→2,Q→2,R→2,S→2,T→2,U→2,V→2,W→2,X→2,Y→2,Z→2  [auto-connected: 1]
+  0.0.0.0   port   0.0.0.0   both |          Y | B+→1=25   | A+→2= 1   | A→2,B→1,C→1,D→1,E→1,F→1,G→1,H→1,I→1,J→1,K→1,L→1,M→1,N→1,O→1,P→1,Q→1,R→1,S→1,T→1,U→1,V→1,W→1,X→1,Y→1,Z→1  [auto-connected: 2]
+  0.0.0.0   both   0.0.0.0   none | EADDRINUSE |   -  (skip: second not bound)
+  0.0.0.0   both   0.0.0.0   addr |          Y | B+→1=25   | A+→2= 1   | A→2,B→1,C→1,D→1,E→1,F→1,G→1,H→1,I→1,J→1,K→1,L→1,M→1,N→1,O→1,P→1,Q→1,R→1,S→1,T→1,U→1,V→1,W→1,X→1,Y→1,Z→1  [auto-connected: 2]
+  0.0.0.0   both   0.0.0.0   port |          Y | B+→1=25   | A+→2= 1   | A→2,B→1,C→1,D→1,E→1,F→1,G→1,H→1,I→1,J→1,K→1,L→1,M→1,N→1,O→1,P→1,Q→1,R→1,S→1,T→1,U→1,V→1,W→1,X→1,Y→1,Z→1  [auto-connected: 2]
+  0.0.0.0   both   0.0.0.0   both |          Y | A+→1= 1   | B+→2=25   | A→1,B→2,C→2,D→2,E→2,F→2,G→2,H→2,I→2,J→2,K→2,L→2,M→2,N→2,O→2,P→2,Q→2,R→2,S→2,T→2,U→2,V→2,W→2,X→2,Y→2,Z→2  [auto-connected: 1]
+127.0.0.1   none   0.0.0.0   none | EADDRINUSE |   -  (skip: second not bound)
+127.0.0.1   none   0.0.0.0   addr | EADDRINUSE |   -  (skip: second not bound)
+127.0.0.1   none   0.0.0.0   port | EADDRINUSE |   -  (skip: second not bound)
+127.0.0.1   none   0.0.0.0   both | EADDRINUSE |   -  (skip: second not bound)
+127.0.0.1   addr   0.0.0.0   none | EADDRINUSE |   -  (skip: second not bound)
+127.0.0.1   addr   0.0.0.0   addr |          Y | A+→1= 1   | B+→2=25   | A→1,B→2,C→2,D→2,E→2,F→2,G→2,H→2,I→2,J→2,K→2,L→2,M→2,N→2,O→2,P→2,Q→2,R→2,S→2,T→2,U→2,V→2,W→2,X→2,Y→2,Z→2  [auto-connected: 1]
+127.0.0.1   addr   0.0.0.0   port | EADDRINUSE |   -  (skip: second not bound)
+127.0.0.1   addr   0.0.0.0   both |          Y | A+→1= 1   | B+→2=25   | A→1,B→2,C→2,D→2,E→2,F→2,G→2,H→2,I→2,J→2,K→2,L→2,M→2,N→2,O→2,P→2,Q→2,R→2,S→2,T→2,U→2,V→2,W→2,X→2,Y→2,Z→2  [auto-connected: 1]
+127.0.0.1   port   0.0.0.0   none | EADDRINUSE |   -  (skip: second not bound)
+127.0.0.1   port   0.0.0.0   addr | EADDRINUSE |   -  (skip: second not bound)
+127.0.0.1   port   0.0.0.0   port |          Y | A+→1= 1   | B+→2=25   | A→1,B→2,C→2,D→2,E→2,F→2,G→2,H→2,I→2,J→2,K→2,L→2,M→2,N→2,O→2,P→2,Q→2,R→2,S→2,T→2,U→2,V→2,W→2,X→2,Y→2,Z→2  [auto-connected: 1]
+127.0.0.1   port   0.0.0.0   both |          Y | A+→1= 1   | B+→2=25   | A→1,B→2,C→2,D→2,E→2,F→2,G→2,H→2,I→2,J→2,K→2,L→2,M→2,N→2,O→2,P→2,Q→2,R→2,S→2,T→2,U→2,V→2,W→2,X→2,Y→2,Z→2  [auto-connected: 1]
+127.0.0.1   both   0.0.0.0   none | EADDRINUSE |   -  (skip: second not bound)
+127.0.0.1   both   0.0.0.0   addr |          Y | A+→1= 1   | B+→2=25   | A→1,B→2,C→2,D→2,E→2,F→2,G→2,H→2,I→2,J→2,K→2,L→2,M→2,N→2,O→2,P→2,Q→2,R→2,S→2,T→2,U→2,V→2,W→2,X→2,Y→2,Z→2  [auto-connected: 1]
+127.0.0.1   both   0.0.0.0   port |          Y | A+→1= 1   | B+→2=25   | A→1,B→2,C→2,D→2,E→2,F→2,G→2,H→2,I→2,J→2,K→2,L→2,M→2,N→2,O→2,P→2,Q→2,R→2,S→2,T→2,U→2,V→2,W→2,X→2,Y→2,Z→2  [auto-connected: 1]
+127.0.0.1   both   0.0.0.0   both |          Y | A+→1= 1   | B+→2=25   | A→1,B→2,C→2,D→2,E→2,F→2,G→2,H→2,I→2,J→2,K→2,L→2,M→2,N→2,O→2,P→2,Q→2,R→2,S→2,T→2,U→2,V→2,W→2,X→2,Y→2,Z→2  [auto-connected: 1]
+  0.0.0.0   none 127.0.0.1   none | EADDRINUSE |   -  (skip: second not bound)
+  0.0.0.0   none 127.0.0.1   addr | EADDRINUSE |   -  (skip: second not bound)
+  0.0.0.0   none 127.0.0.1   port | EADDRINUSE |   -  (skip: second not bound)
+  0.0.0.0   none 127.0.0.1   both | EADDRINUSE |   -  (skip: second not bound)
+  0.0.0.0   addr 127.0.0.1   none | EADDRINUSE |   -  (skip: second not bound)
+  0.0.0.0   addr 127.0.0.1   addr |          Y | B+→1=25   | A+→2= 1   | A→2,B→1,C→1,D→1,E→1,F→1,G→1,H→1,I→1,J→1,K→1,L→1,M→1,N→1,O→1,P→1,Q→1,R→1,S→1,T→1,U→1,V→1,W→1,X→1,Y→1,Z→1  [auto-connected: 2]
+  0.0.0.0   addr 127.0.0.1   port | EADDRINUSE |   -  (skip: second not bound)
+  0.0.0.0   addr 127.0.0.1   both |          Y | B+→1=25   | A+→2= 1   | A→2,B→1,C→1,D→1,E→1,F→1,G→1,H→1,I→1,J→1,K→1,L→1,M→1,N→1,O→1,P→1,Q→1,R→1,S→1,T→1,U→1,V→1,W→1,X→1,Y→1,Z→1  [auto-connected: 2]
+  0.0.0.0   port 127.0.0.1   none | EADDRINUSE |   -  (skip: second not bound)
+  0.0.0.0   port 127.0.0.1   addr | EADDRINUSE |   -  (skip: second not bound)
+  0.0.0.0   port 127.0.0.1   port |          Y | B+→1=25   | A+→2= 1   | A→2,B→1,C→1,D→1,E→1,F→1,G→1,H→1,I→1,J→1,K→1,L→1,M→1,N→1,O→1,P→1,Q→1,R→1,S→1,T→1,U→1,V→1,W→1,X→1,Y→1,Z→1  [auto-connected: 2]
+  0.0.0.0   port 127.0.0.1   both |          Y | B+→1=25   | A+→2= 1   | A→2,B→1,C→1,D→1,E→1,F→1,G→1,H→1,I→1,J→1,K→1,L→1,M→1,N→1,O→1,P→1,Q→1,R→1,S→1,T→1,U→1,V→1,W→1,X→1,Y→1,Z→1  [auto-connected: 2]
+  0.0.0.0   both 127.0.0.1   none | EADDRINUSE |   -  (skip: second not bound)
+  0.0.0.0   both 127.0.0.1   addr |          Y | B+→1=25   | A+→2= 1   | A→2,B→1,C→1,D→1,E→1,F→1,G→1,H→1,I→1,J→1,K→1,L→1,M→1,N→1,O→1,P→1,Q→1,R→1,S→1,T→1,U→1,V→1,W→1,X→1,Y→1,Z→1  [auto-connected: 2]
+  0.0.0.0   both 127.0.0.1   port |          Y | B+→1=25   | A+→2= 1   | A→2,B→1,C→1,D→1,E→1,F→1,G→1,H→1,I→1,J→1,K→1,L→1,M→1,N→1,O→1,P→1,Q→1,R→1,S→1,T→1,U→1,V→1,W→1,X→1,Y→1,Z→1  [auto-connected: 2]
+  0.0.0.0   both 127.0.0.1   both |          Y | B+→1=25   | A+→2= 1   | A→2,B→1,C→1,D→1,E→1,F→1,G→1,H→1,I→1,J→1,K→1,L→1,M→1,N→1,O→1,P→1,Q→1,R→1,S→1,T→1,U→1,V→1,W→1,X→1,Y→1,Z→1  [auto-connected: 2]
+
+########## TARGET 172.17.0.1  (non-loopback: only 0.0.0.0 sockets hear it) ##########
+
+== target=172.17.0.1 | src=many | connect=none ==
+   -- no connect -> address rules make ONE socket win (no distribution)
+    addr1 reuse1     addr2 reuse2 |     b2/err |               delivery | order
+-------------------------------------------------------------------------------
+127.0.0.1   none 127.0.0.1   none | EADDRINUSE |   -  (skip: second not bound)
+127.0.0.1   none 127.0.0.1   addr | EADDRINUSE |   -  (skip: second not bound)
+127.0.0.1   none 127.0.0.1   port | EADDRINUSE |   -  (skip: second not bound)
+127.0.0.1   none 127.0.0.1   both | EADDRINUSE |   -  (skip: second not bound)
+127.0.0.1   addr 127.0.0.1   none | EADDRINUSE |   -  (skip: second not bound)
+127.0.0.1   addr 127.0.0.1   addr |          Y |   -  (no listener hears this target)
+127.0.0.1   addr 127.0.0.1   port | EADDRINUSE |   -  (skip: second not bound)
+127.0.0.1   addr 127.0.0.1   both |          Y |   -  (no listener hears this target)
+127.0.0.1   port 127.0.0.1   none | EADDRINUSE |   -  (skip: second not bound)
+127.0.0.1   port 127.0.0.1   addr | EADDRINUSE |   -  (skip: second not bound)
+127.0.0.1   port 127.0.0.1   port |          Y |   -  (no listener hears this target)
+127.0.0.1   port 127.0.0.1   both |          Y |   -  (no listener hears this target)
+127.0.0.1   both 127.0.0.1   none | EADDRINUSE |   -  (skip: second not bound)
+127.0.0.1   both 127.0.0.1   addr |          Y |   -  (no listener hears this target)
+127.0.0.1   both 127.0.0.1   port |          Y |   -  (no listener hears this target)
+127.0.0.1   both 127.0.0.1   both |          Y |   -  (no listener hears this target)
+  0.0.0.0   none   0.0.0.0   none | EADDRINUSE |   -  (skip: second not bound)
+  0.0.0.0   none   0.0.0.0   addr | EADDRINUSE |   -  (skip: second not bound)
+  0.0.0.0   none   0.0.0.0   port | EADDRINUSE |   -  (skip: second not bound)
+  0.0.0.0   none   0.0.0.0   both | EADDRINUSE |   -  (skip: second not bound)
+  0.0.0.0   addr   0.0.0.0   none | EADDRINUSE |   -  (skip: second not bound)
+  0.0.0.0   addr   0.0.0.0   addr |          Y |           | A+→2=26   | A→2,B→2,C→2,D→2,E→2,F→2,G→2,H→2,I→2,J→2,K→2,L→2,M→2,N→2,O→2,P→2,Q→2,R→2,S→2,T→2,U→2,V→2,W→2,X→2,Y→2,Z→2
+  0.0.0.0   addr   0.0.0.0   port | EADDRINUSE |   -  (skip: second not bound)
+  0.0.0.0   addr   0.0.0.0   both |          Y |           | A+→2=26   | A→2,B→2,C→2,D→2,E→2,F→2,G→2,H→2,I→2,J→2,K→2,L→2,M→2,N→2,O→2,P→2,Q→2,R→2,S→2,T→2,U→2,V→2,W→2,X→2,Y→2,Z→2
+  0.0.0.0   port   0.0.0.0   none | EADDRINUSE |   -  (skip: second not bound)
+  0.0.0.0   port   0.0.0.0   addr | EADDRINUSE |   -  (skip: second not bound)
+  0.0.0.0   port   0.0.0.0   port |          Y | B+→1=10   | A+→2=16   | B→1,A→2,C→1,D→2,F→1,E→2,G→1,H→2,I→1,J→2,L→1,K→2,Q→1,M→2,R→1,N→2,Y→1,O→2,Z→1,P→2,S→2,T→2,U→2,V→2,W→2,X→2
+  0.0.0.0   port   0.0.0.0   both |          Y | D+→1=11   | A+→2=15   | D→1,A→2,E→1,B→2,G→1,C→2,H→1,F→2,I→1,O→2,J→1,P→2,K→1,Q→2,L→1,R→2,M→1,S→2,N→1,U→2,T→1,V→2,W→2,X→2,Y→2,Z→2
+  0.0.0.0   both   0.0.0.0   none | EADDRINUSE |   -  (skip: second not bound)
+  0.0.0.0   both   0.0.0.0   addr |          Y |           | A+→2=26   | A→2,B→2,C→2,D→2,E→2,F→2,G→2,H→2,I→2,J→2,K→2,L→2,M→2,N→2,O→2,P→2,Q→2,R→2,S→2,T→2,U→2,V→2,W→2,X→2,Y→2,Z→2
+  0.0.0.0   both   0.0.0.0   port |          Y | D+→1=12   | A+→2=14   | D→1,A→2,E→1,B→2,J→1,C→2,M→1,F→2,O→1,G→2,R→1,H→2,T→1,I→2,U→1,K→2,W→1,L→2,X→1,N→2,Y→1,P→2,Z→1,Q→2,S→2,V→2
+  0.0.0.0   both   0.0.0.0   both |          Y | A+→1=11   | B+→2=15   | A→1,B→2,C→1,E→2,D→1,G→2,F→1,I→2,H→1,J→2,O→1,K→2,R→1,L→2,T→1,M→2,U→1,N→2,V→1,P→2,W→1,Q→2,S→2,X→2,Y→2,Z→2
+127.0.0.1   none   0.0.0.0   none | EADDRINUSE |   -  (skip: second not bound)
+127.0.0.1   none   0.0.0.0   addr | EADDRINUSE |   -  (skip: second not bound)
+127.0.0.1   none   0.0.0.0   port | EADDRINUSE |   -  (skip: second not bound)
+127.0.0.1   none   0.0.0.0   both | EADDRINUSE |   -  (skip: second not bound)
+127.0.0.1   addr   0.0.0.0   none | EADDRINUSE |   -  (skip: second not bound)
+127.0.0.1   addr   0.0.0.0   addr |          Y |           | A+→2=26   | A→2,B→2,C→2,D→2,E→2,F→2,G→2,H→2,I→2,J→2,K→2,L→2,M→2,N→2,O→2,P→2,Q→2,R→2,S→2,T→2,U→2,V→2,W→2,X→2,Y→2,Z→2
+127.0.0.1   addr   0.0.0.0   port | EADDRINUSE |   -  (skip: second not bound)
+127.0.0.1   addr   0.0.0.0   both |          Y |           | A+→2=26   | A→2,B→2,C→2,D→2,E→2,F→2,G→2,H→2,I→2,J→2,K→2,L→2,M→2,N→2,O→2,P→2,Q→2,R→2,S→2,T→2,U→2,V→2,W→2,X→2,Y→2,Z→2
+127.0.0.1   port   0.0.0.0   none | EADDRINUSE |   -  (skip: second not bound)
+127.0.0.1   port   0.0.0.0   addr | EADDRINUSE |   -  (skip: second not bound)
+127.0.0.1   port   0.0.0.0   port |          Y |           | A+→2=26   | A→2,B→2,C→2,D→2,E→2,F→2,G→2,H→2,I→2,J→2,K→2,L→2,M→2,N→2,O→2,P→2,Q→2,R→2,S→2,T→2,U→2,V→2,W→2,X→2,Y→2,Z→2
+127.0.0.1   port   0.0.0.0   both |          Y |           | A+→2=26   | A→2,B→2,C→2,D→2,E→2,F→2,G→2,H→2,I→2,J→2,K→2,L→2,M→2,N→2,O→2,P→2,Q→2,R→2,S→2,T→2,U→2,V→2,W→2,X→2,Y→2,Z→2
+127.0.0.1   both   0.0.0.0   none | EADDRINUSE |   -  (skip: second not bound)
+127.0.0.1   both   0.0.0.0   addr |          Y |           | A+→2=26   | A→2,B→2,C→2,D→2,E→2,F→2,G→2,H→2,I→2,J→2,K→2,L→2,M→2,N→2,O→2,P→2,Q→2,R→2,S→2,T→2,U→2,V→2,W→2,X→2,Y→2,Z→2
+127.0.0.1   both   0.0.0.0   port |          Y |           | A+→2=26   | A→2,B→2,C→2,D→2,E→2,F→2,G→2,H→2,I→2,J→2,K→2,L→2,M→2,N→2,O→2,P→2,Q→2,R→2,S→2,T→2,U→2,V→2,W→2,X→2,Y→2,Z→2
+127.0.0.1   both   0.0.0.0   both |          Y |           | A+→2=26   | A→2,B→2,C→2,D→2,E→2,F→2,G→2,H→2,I→2,J→2,K→2,L→2,M→2,N→2,O→2,P→2,Q→2,R→2,S→2,T→2,U→2,V→2,W→2,X→2,Y→2,Z→2
+  0.0.0.0   none 127.0.0.1   none | EADDRINUSE |   -  (skip: second not bound)
+  0.0.0.0   none 127.0.0.1   addr | EADDRINUSE |   -  (skip: second not bound)
+  0.0.0.0   none 127.0.0.1   port | EADDRINUSE |   -  (skip: second not bound)
+  0.0.0.0   none 127.0.0.1   both | EADDRINUSE |   -  (skip: second not bound)
+  0.0.0.0   addr 127.0.0.1   none | EADDRINUSE |   -  (skip: second not bound)
+  0.0.0.0   addr 127.0.0.1   addr |          Y | A+→1=26   |           | A→1,B→1,C→1,D→1,E→1,F→1,G→1,H→1,I→1,J→1,K→1,L→1,M→1,N→1,O→1,P→1,Q→1,R→1,S→1,T→1,U→1,V→1,W→1,X→1,Y→1,Z→1
+  0.0.0.0   addr 127.0.0.1   port | EADDRINUSE |   -  (skip: second not bound)
+  0.0.0.0   addr 127.0.0.1   both |          Y | A+→1=26   |           | A→1,B→1,C→1,D→1,E→1,F→1,G→1,H→1,I→1,J→1,K→1,L→1,M→1,N→1,O→1,P→1,Q→1,R→1,S→1,T→1,U→1,V→1,W→1,X→1,Y→1,Z→1
+  0.0.0.0   port 127.0.0.1   none | EADDRINUSE |   -  (skip: second not bound)
+  0.0.0.0   port 127.0.0.1   addr | EADDRINUSE |   -  (skip: second not bound)
+  0.0.0.0   port 127.0.0.1   port |          Y | A+→1=26   |           | A→1,B→1,C→1,D→1,E→1,F→1,G→1,H→1,I→1,J→1,K→1,L→1,M→1,N→1,O→1,P→1,Q→1,R→1,S→1,T→1,U→1,V→1,W→1,X→1,Y→1,Z→1
+  0.0.0.0   port 127.0.0.1   both |          Y | A+→1=26   |           | A→1,B→1,C→1,D→1,E→1,F→1,G→1,H→1,I→1,J→1,K→1,L→1,M→1,N→1,O→1,P→1,Q→1,R→1,S→1,T→1,U→1,V→1,W→1,X→1,Y→1,Z→1
+  0.0.0.0   both 127.0.0.1   none | EADDRINUSE |   -  (skip: second not bound)
+  0.0.0.0   both 127.0.0.1   addr |          Y | A+→1=26   |           | A→1,B→1,C→1,D→1,E→1,F→1,G→1,H→1,I→1,J→1,K→1,L→1,M→1,N→1,O→1,P→1,Q→1,R→1,S→1,T→1,U→1,V→1,W→1,X→1,Y→1,Z→1
+  0.0.0.0   both 127.0.0.1   port |          Y | A+→1=26   |           | A→1,B→1,C→1,D→1,E→1,F→1,G→1,H→1,I→1,J→1,K→1,L→1,M→1,N→1,O→1,P→1,Q→1,R→1,S→1,T→1,U→1,V→1,W→1,X→1,Y→1,Z→1
+  0.0.0.0   both 127.0.0.1   both |          Y | A+→1=26   |           | A→1,B→1,C→1,D→1,E→1,F→1,G→1,H→1,I→1,J→1,K→1,L→1,M→1,N→1,O→1,P→1,Q→1,R→1,S→1,T→1,U→1,V→1,W→1,X→1,Y→1,Z→1
+
+== target=172.17.0.1 | src=many | connect=auto ==
+   -- discover-then-connect (nc): first datagram's receiver pins to that source; fresh-source packets escape to the other socket
+    addr1 reuse1     addr2 reuse2 |     b2/err |               delivery | order
+-------------------------------------------------------------------------------
+127.0.0.1   none 127.0.0.1   none | EADDRINUSE |   -  (skip: second not bound)
+127.0.0.1   none 127.0.0.1   addr | EADDRINUSE |   -  (skip: second not bound)
+127.0.0.1   none 127.0.0.1   port | EADDRINUSE |   -  (skip: second not bound)
+127.0.0.1   none 127.0.0.1   both | EADDRINUSE |   -  (skip: second not bound)
+127.0.0.1   addr 127.0.0.1   none | EADDRINUSE |   -  (skip: second not bound)
+127.0.0.1   addr 127.0.0.1   addr |          Y |   -  (no listener hears this target)
+127.0.0.1   addr 127.0.0.1   port | EADDRINUSE |   -  (skip: second not bound)
+127.0.0.1   addr 127.0.0.1   both |          Y |   -  (no listener hears this target)
+127.0.0.1   port 127.0.0.1   none | EADDRINUSE |   -  (skip: second not bound)
+127.0.0.1   port 127.0.0.1   addr | EADDRINUSE |   -  (skip: second not bound)
+127.0.0.1   port 127.0.0.1   port |          Y |   -  (no listener hears this target)
+127.0.0.1   port 127.0.0.1   both |          Y |   -  (no listener hears this target)
+127.0.0.1   both 127.0.0.1   none | EADDRINUSE |   -  (skip: second not bound)
+127.0.0.1   both 127.0.0.1   addr |          Y |   -  (no listener hears this target)
+127.0.0.1   both 127.0.0.1   port |          Y |   -  (no listener hears this target)
+127.0.0.1   both 127.0.0.1   both |          Y |   -  (no listener hears this target)
+  0.0.0.0   none   0.0.0.0   none | EADDRINUSE |   -  (skip: second not bound)
+  0.0.0.0   none   0.0.0.0   addr | EADDRINUSE |   -  (skip: second not bound)
+  0.0.0.0   none   0.0.0.0   port | EADDRINUSE |   -  (skip: second not bound)
+  0.0.0.0   none   0.0.0.0   both | EADDRINUSE |   -  (skip: second not bound)
+  0.0.0.0   addr   0.0.0.0   none | EADDRINUSE |   -  (skip: second not bound)
+  0.0.0.0   addr   0.0.0.0   addr |          Y | B+→1=25   | A+→2= 1   | A→2,B→1,C→1,D→1,E→1,F→1,G→1,H→1,I→1,J→1,K→1,L→1,M→1,N→1,O→1,P→1,Q→1,R→1,S→1,T→1,U→1,V→1,W→1,X→1,Y→1,Z→1  [auto-connected: 2]
+  0.0.0.0   addr   0.0.0.0   port | EADDRINUSE |   -  (skip: second not bound)
+  0.0.0.0   addr   0.0.0.0   both |          Y | B+→1=25   | A+→2= 1   | A→2,B→1,C→1,D→1,E→1,F→1,G→1,H→1,I→1,J→1,K→1,L→1,M→1,N→1,O→1,P→1,Q→1,R→1,S→1,T→1,U→1,V→1,W→1,X→1,Y→1,Z→1  [auto-connected: 2]
+  0.0.0.0   port   0.0.0.0   none | EADDRINUSE |   -  (skip: second not bound)
+  0.0.0.0   port   0.0.0.0   addr | EADDRINUSE |   -  (skip: second not bound)
+  0.0.0.0   port   0.0.0.0   port |          Y | A+→1= 1   | B+→2=25   | A→1,B→2,C→2,D→2,E→2,F→2,G→2,H→2,I→2,J→2,K→2,L→2,M→2,N→2,O→2,P→2,Q→2,R→2,S→2,T→2,U→2,V→2,W→2,X→2,Y→2,Z→2  [auto-connected: 1]
+  0.0.0.0   port   0.0.0.0   both |          Y | A+→1= 1   | B+→2=25   | A→1,B→2,C→2,D→2,E→2,F→2,G→2,H→2,I→2,J→2,K→2,L→2,M→2,N→2,O→2,P→2,Q→2,R→2,S→2,T→2,U→2,V→2,W→2,X→2,Y→2,Z→2  [auto-connected: 1]
+  0.0.0.0   both   0.0.0.0   none | EADDRINUSE |   -  (skip: second not bound)
+  0.0.0.0   both   0.0.0.0   addr |          Y | B+→1=25   | A+→2= 1   | A→2,B→1,C→1,D→1,E→1,F→1,G→1,H→1,I→1,J→1,K→1,L→1,M→1,N→1,O→1,P→1,Q→1,R→1,S→1,T→1,U→1,V→1,W→1,X→1,Y→1,Z→1  [auto-connected: 2]
+  0.0.0.0   both   0.0.0.0   port |          Y | B+→1=25   | A+→2= 1   | A→2,B→1,C→1,D→1,E→1,F→1,G→1,H→1,I→1,J→1,K→1,L→1,M→1,N→1,O→1,P→1,Q→1,R→1,S→1,T→1,U→1,V→1,W→1,X→1,Y→1,Z→1  [auto-connected: 2]
+  0.0.0.0   both   0.0.0.0   both |          Y | A+→1= 1   | B+→2=25   | A→1,B→2,C→2,D→2,E→2,F→2,G→2,H→2,I→2,J→2,K→2,L→2,M→2,N→2,O→2,P→2,Q→2,R→2,S→2,T→2,U→2,V→2,W→2,X→2,Y→2,Z→2  [auto-connected: 1]
+127.0.0.1   none   0.0.0.0   none | EADDRINUSE |   -  (skip: second not bound)
+127.0.0.1   none   0.0.0.0   addr | EADDRINUSE |   -  (skip: second not bound)
+127.0.0.1   none   0.0.0.0   port | EADDRINUSE |   -  (skip: second not bound)
+127.0.0.1   none   0.0.0.0   both | EADDRINUSE |   -  (skip: second not bound)
+127.0.0.1   addr   0.0.0.0   none | EADDRINUSE |   -  (skip: second not bound)
+127.0.0.1   addr   0.0.0.0   addr |          Y |           | A+→2= 1   | A→2  [auto-connected: 2]
+127.0.0.1   addr   0.0.0.0   port | EADDRINUSE |   -  (skip: second not bound)
+127.0.0.1   addr   0.0.0.0   both |          Y |           | A+→2= 1   | A→2  [auto-connected: 2]
+127.0.0.1   port   0.0.0.0   none | EADDRINUSE |   -  (skip: second not bound)
+127.0.0.1   port   0.0.0.0   addr | EADDRINUSE |   -  (skip: second not bound)
+127.0.0.1   port   0.0.0.0   port |          Y |           | A+→2= 1   | A→2  [auto-connected: 2]
+127.0.0.1   port   0.0.0.0   both |          Y |           | A+→2= 1   | A→2  [auto-connected: 2]
+127.0.0.1   both   0.0.0.0   none | EADDRINUSE |   -  (skip: second not bound)
+127.0.0.1   both   0.0.0.0   addr |          Y |           | A+→2= 1   | A→2  [auto-connected: 2]
+127.0.0.1   both   0.0.0.0   port |          Y |           | A+→2= 1   | A→2  [auto-connected: 2]
+127.0.0.1   both   0.0.0.0   both |          Y |           | A+→2= 1   | A→2  [auto-connected: 2]
+  0.0.0.0   none 127.0.0.1   none | EADDRINUSE |   -  (skip: second not bound)
+  0.0.0.0   none 127.0.0.1   addr | EADDRINUSE |   -  (skip: second not bound)
+  0.0.0.0   none 127.0.0.1   port | EADDRINUSE |   -  (skip: second not bound)
+  0.0.0.0   none 127.0.0.1   both | EADDRINUSE |   -  (skip: second not bound)
+  0.0.0.0   addr 127.0.0.1   none | EADDRINUSE |   -  (skip: second not bound)
+  0.0.0.0   addr 127.0.0.1   addr |          Y | A+→1= 1   |           | A→1  [auto-connected: 1]
+  0.0.0.0   addr 127.0.0.1   port | EADDRINUSE |   -  (skip: second not bound)
+  0.0.0.0   addr 127.0.0.1   both |          Y | A+→1= 1   |           | A→1  [auto-connected: 1]
+  0.0.0.0   port 127.0.0.1   none | EADDRINUSE |   -  (skip: second not bound)
+  0.0.0.0   port 127.0.0.1   addr | EADDRINUSE |   -  (skip: second not bound)
+  0.0.0.0   port 127.0.0.1   port |          Y | A+→1= 1   |           | A→1  [auto-connected: 1]
+  0.0.0.0   port 127.0.0.1   both |          Y | A+→1= 1   |           | A→1  [auto-connected: 1]
+  0.0.0.0   both 127.0.0.1   none | EADDRINUSE |   -  (skip: second not bound)
+  0.0.0.0   both 127.0.0.1   addr |          Y | A+→1= 1   |           | A→1  [auto-connected: 1]
+  0.0.0.0   both 127.0.0.1   port |          Y | A+→1= 1   |           | A→1  [auto-connected: 1]
+  0.0.0.0   both 127.0.0.1   both |          Y | A+→1= 1   |           | A→1  [auto-connected: 1]
