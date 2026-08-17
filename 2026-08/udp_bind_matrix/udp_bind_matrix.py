@@ -37,7 +37,7 @@ NOTE: a single UDP datagram is always delivered to exactly ONE socket.
 import argparse
 import errno
 import re
-import select
+import selectors
 import socket
 import subprocess
 import sys
@@ -45,13 +45,15 @@ import time
 
 PORT = 49941
 REUSE_OPTS = ("none", "addr", "port", "both")
-SINGLE_PKTS = 20    # packets for single topology
-DUAL_PAIRS = 10     # (A,B) pairs for dual topology
-MANY_SENDERS = 26   # senders for many topology (A..Z alphabet)
-TIMEOUT_MS = 800           # per-scenario receipt deadline (also the auto first-datagram wait)
-QUIET_MS = 150            # drain stops after this long without a receipt (bursts arrive in µs)
-SELECT_POLL_S = 0.02      # select() poll granularity
-BETWEEN_SCENARIO_SLEEP = 0.03   # pause between scenarios for kernel to release the shared port
+SINGLE_PKTS = 20  # packets for single topology
+DUAL_PAIRS = 10  # (A,B) pairs for dual topology
+MANY_SENDERS = 26  # senders for many topology (A..Z alphabet)
+TIMEOUT_MS = 800  # per-scenario receipt deadline (also the auto first-datagram wait)
+QUIET_MS = 150  # drain stops after this long without a receipt (bursts arrive in µs)
+POLL_INTERVAL_S = 0.02  # select()/selectors poll granularity (s)
+BETWEEN_SCENARIO_SLEEP = (
+    0.03  # pause between scenarios for kernel to release the shared port
+)
 
 
 def pick_free_port():
@@ -84,7 +86,7 @@ def try_bind(sock, addr):
 def new_sender(bind_ip="0.0.0.0"):
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     sock.setblocking(False)
-    sock.bind((bind_ip, 0))        # ephemeral source port
+    sock.bind((bind_ip, 0))  # ephemeral source port
     return sock
 
 
@@ -97,27 +99,6 @@ def source_label(idx):
         label = chr(65 + idx % 26) + label
         idx //= 26
     return label
-
-
-def send_wait(s1, s2, sender, letter, target, timeout):
-    """Send one datagram whose payload is the sender's source letter (A, B,
-    C, ...), then WAIT for its receipt (whichever socket got it). Because we
-    never send the next packet until the current one is received, read order
-    == delivery order (no queue-backlog reordering). Returns
-    (receiving_socket, source_addr, received_letter) or None on timeout."""
-    sender.sendto(letter.encode(), (target, PORT))
-    deadline = time.time() + timeout
-    while time.time() < deadline:
-        ready, _, _ = select.select([s1, s2], [], [], SELECT_POLL_S)
-        if not ready:
-            continue
-        for sock in ready:
-            try:
-                data, sender_addr = sock.recvfrom(2048)
-                return sock, sender_addr, data.decode()
-            except BlockingIOError:
-                continue
-    return None
 
 
 def delivery(s1, s2, target, topology, connect):
@@ -145,64 +126,98 @@ def delivery(s1, s2, target, topology, connect):
         senders = [new_sender() for _ in range(MANY_SENDERS)]
         send_seq = [(sender, source_label(idx)) for idx, sender in enumerate(senders)]
 
-    labels = {}                       # sock_id -> first letter that socket got
+    labels = {}  # sock_id -> first letter that socket got
     counts = {"s1": 0, "s2": 0}
     order = []
-    pinned = None                     # receiver socket connect()ed in auto mode
+    pinned = None  # sock_id that connect()ed in auto mode
+    auto_connect = connect == "auto" and topology != "single"
 
-    def record(sock, letter):
-        sock_id = "s1" if sock is s1 else "s2"
-        counts[sock_id] += 1
-        labels.setdefault(sock_id, letter)
-        order.append(f"{letter}→{sock_id[1]}")
-
-    # nc-faithful: pin the FIRST datagram's receiver to its source before
-    # the burst, so the rest land under the post-connect rules.
-    if connect == "auto" and topology != "single":
-        first_receipt = send_wait(s1, s2, send_seq[0][0], send_seq[0][1],
-                                  target, timeout=TIMEOUT_MS / 1000.0)
-        if first_receipt:
-            # The pre-sent datagram was received; keep it out of the burst
-            # (on timeout it stays in the plan and is simply re-sent).
-            send_seq = send_seq[1:]
-            sock, sender_addr, letter = first_receipt
-            record(sock, letter)
-            sock.connect((target, sender_addr[1]))
-            pinned = sock
-
-    # Burst-send everything at once, then drain whatever each socket got.
-    for sender, letter in send_seq:
-        while True:
+    def make_read_handler(sock_id):
+        def read_once(sock):
+            nonlocal pinned
             try:
-                sender.sendto(letter.encode(), (target, PORT))
-                break
-            except BlockingIOError:      # send buffer full (unlikely here)
-                select.select([], [sender], [], SELECT_POLL_S)
+                data, sender_addr = sock.recvfrom(2048)
+            except BlockingIOError:
+                return None
+            letter = data.decode()
+            counts[sock_id] += 1
+            labels.setdefault(sock_id, letter)
+            order.append(f"{letter}→{sock_id[1]}")
+            if auto_connect and pinned is None:
+                # Connected sockets accept only their peer; fresh-source
+                # packets then escape to the sibling socket.
+                sock.connect((target, sender_addr[1]))
+                pinned = sock_id
+            return time.monotonic() + QUIET_MS / 1000.0
+
+        return read_once
+
+    selector = selectors.DefaultSelector()
+    selector.register(s1, selectors.EVENT_READ, make_read_handler("s1"))
+    selector.register(s2, selectors.EVENT_READ, make_read_handler("s2"))
 
     expected = len(send_seq)
-    received = 0                       # burst receipts only; first was pre-drained
-    deadline = time.time() + TIMEOUT_MS / 1000.0
-    quiet_until = time.time() + QUIET_MS / 1000.0
-    while (received < expected and time.time() < deadline
-           and time.time() < quiet_until):
-        ready, _, _ = select.select([s1, s2], [], [], SELECT_POLL_S)
-        if not ready:
-            continue
-        for sock in ready:
-            try:
-                data, _ = sock.recvfrom(2048)
-                record(sock, data.decode())
-                received += 1
-                quiet_until = time.time() + QUIET_MS / 1000.0
-            except BlockingIOError:
-                continue
+    received = 0
+    quiet_until = (
+        time.monotonic() + QUIET_MS / 1000.0
+    )  # bind before process_events; refreshed below
+
+    def process_events(events):
+        """Drain ready receivers; send if the registered sender is writable.
+        Returns True once that sender's payload was sent."""
+        nonlocal received, quiet_until
+        sent = False
+        for key, event in events:
+            if event == selectors.EVENT_READ:
+                next_quiet = key.data(key.fileobj)
+                if next_quiet is not None:
+                    received += 1
+                    quiet_until = next_quiet
+            elif event == selectors.EVENT_WRITE:
+                sender = key.fileobj
+                try:
+                    sender.sendto(key.data, (target, PORT))
+                except BlockingIOError:  # send buffer full (unlikely here)
+                    continue
+                selector.unregister(sender)
+                sent = True
+        return sent
+
+    def transmit(sender, payload):
+        selector.register(sender, selectors.EVENT_WRITE, payload)
+        while True:
+            if process_events(selector.select(POLL_INTERVAL_S)):
+                return
+
+    # Auto mode: the first receipt decides which socket connect()s, and the
+    # burst must wait for it, else address rules deliver it all to one socket.
+    first_sender, first_letter = send_seq[0]
+    transmit(first_sender, first_letter.encode())
+    if auto_connect:
+        wait_deadline = time.monotonic() + TIMEOUT_MS / 1000.0
+        while not received and time.monotonic() < wait_deadline:
+            process_events(selector.select(POLL_INTERVAL_S))
+
+    for sender, letter in send_seq[1:]:
+        transmit(sender, letter.encode())
+
+    # Fresh drain budget after the wait: a slow first receipt must not eat
+    # the window for the rest (the original set these after send_wait too).
+    deadline = time.monotonic() + TIMEOUT_MS / 1000.0
+    quiet_until = time.monotonic() + QUIET_MS / 1000.0
+    while (
+        received < expected
+        and time.monotonic() < deadline
+        and time.monotonic() < quiet_until
+    ):
+        process_events(selector.select(POLL_INTERVAL_S))
 
     res = {"labels": labels, "counts": counts, "order": ",".join(order[:40])}
     if connect == "auto":
-        res["connected"] = ("s1" if pinned is s1
-                             else ("s2" if pinned is s2 else "none"))
+        res["connected"] = pinned or "none"
     for sender in senders:
         sender.close()
+    selector.close()
     return res
 
 
@@ -222,7 +237,7 @@ def run_scenario(addr1, reuse1, addr2, reuse2, target, topology, connect):
         if hearable(addr1, target) or hearable(addr2, target):
             res.update(delivery(s1, s2, target, topology, connect))
         else:
-            res["skip"] = True   # no bound socket can ever hear this target
+            res["skip"] = True  # no bound socket can ever hear this target
 
     s1.close()
     s2.close()
@@ -252,39 +267,40 @@ def format_row(addr1, reuse1, addr2, reuse2, res):
     if res.get("skip"):
         return base + "  -  (no listener hears this target)"
     labels, counts = res["labels"], res["counts"]
-    cells = (f"{fmt_cell(labels.get('s1', '?') + '+→1', counts['s1'])} | "
-             f"{fmt_cell(labels.get('s2', '?') + '+→2', counts['s2'])}")
+    cells = (
+        f"{fmt_cell(labels.get('s1', '?') + '+→1', counts['s1'])} | "
+        f"{fmt_cell(labels.get('s2', '?') + '+→2', counts['s2'])}"
+    )
     tail = f" | {res['order']}"
     if res.get("connected"):
         # "connected" is only present for connect=auto runs, so this
         # annotation never appears on plain address-rule rows.
-        pinned = ("none" if res["connected"] == "none"
-                  else res["connected"][1])
+        pinned = "none" if res["connected"] == "none" else res["connected"][1]
         tail += f"  [auto-connected: {pinned}]"
     return base + cells + tail
 
 
 def _run_capture(cmd):
     try:
-        return subprocess.run(cmd, capture_output=True, text=True,
-                              check=True).stdout
+        return subprocess.run(cmd, capture_output=True, text=True, check=True).stdout
     except (OSError, subprocess.SubprocessError):
         return ""
 
 
 def _ips_from_ifconfig():
-    return re.findall(r"inet (?:addr:)?((?:\d+\.){3}\d+)",
-                      _run_capture(["/sbin/ifconfig"]))
+    return re.findall(
+        r"inet (?:addr:)?((?:\d+\.){3}\d+)", _run_capture(["/sbin/ifconfig"])
+    )
 
 
 def _ips_from_ip():
-    return re.findall(r"inet (?:addr:)?((?:\d+\.){3}\d+)/",
-                      _run_capture(["/sbin/ip", "-4", "addr"]))
+    return re.findall(
+        r"inet (?:addr:)?((?:\d+\.){3}\d+)/", _run_capture(["/sbin/ip", "-4", "addr"])
+    )
 
 
 def _ips_from_hostname():
-    return re.findall(r"((?:\d+\.){3}\d+)",
-                      _run_capture(["hostname", "-i"]))
+    return re.findall(r"((?:\d+\.){3}\d+)", _run_capture(["hostname", "-i"]))
 
 
 def _ips_native():
@@ -295,14 +311,19 @@ def _ips_native():
         _, _, ips = socket.gethostbyname_ex(socket.gethostname())
     except OSError:
         try:
-            ips = sorted({ai[4][0] for ai in
-                          socket.getaddrinfo(socket.gethostname(), None,
-                                             socket.AF_INET)})
+            ips = sorted(
+                {
+                    ai[4][0]
+                    for ai in socket.getaddrinfo(
+                        socket.gethostname(), None, socket.AF_INET
+                    )
+                }
+            )
         except OSError:
             ips = []
     try:
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        sock.connect(("8.8.8.8", 80))    # sends no packets
+        sock.connect(("8.8.8.8", 80))  # sends no packets
         src_ip = sock.getsockname()[0]
         sock.close()
         if src_ip and src_ip != "0.0.0.0" and src_ip not in ips:
@@ -317,8 +338,7 @@ def local_ipv4_addrs():
     several sources in order: ifconfig -> ip -4 addr -> hostname -i ->
     native Python. Results are deduped; 0.0.0.0 is filtered."""
     addrs = []
-    for fn in (_ips_from_ifconfig, _ips_from_ip,
-               _ips_from_hostname, _ips_native):
+    for fn in (_ips_from_ifconfig, _ips_from_ip, _ips_from_hostname, _ips_native):
         for addr in fn():
             if addr and addr != "0.0.0.0" and addr not in addrs:
                 addrs.append(addr)
@@ -329,8 +349,7 @@ def get_targets(addrs=None):
     """Default run targets: always loopback, plus detected non-loopback (if any)."""
     if addrs is None:
         addrs = local_ipv4_addrs()
-    non_loopback = [addr for addr in addrs
-                    if not addr.startswith("127.")]
+    non_loopback = [addr for addr in addrs if not addr.startswith("127.")]
     targets = ["127.0.0.1"]
     if non_loopback:
         targets.append(non_loopback[0])
@@ -340,7 +359,7 @@ def get_targets(addrs=None):
 CONNECT_ANNOTATION = {
     "none": "no connect -> address rules make ONE socket win (no distribution)",
     "auto": "discover-then-connect (nc): first datagram's receiver pins to that source; "
-            "fresh-source packets escape to the other socket",
+    "fresh-source packets escape to the other socket",
 }
 
 
@@ -353,30 +372,50 @@ def run_matrix(target, topology, connect, only_both_up):
     ]
     print(f"\n== target={target} | src={topology} | connect={connect} ==")
     print(f"   -- {CONNECT_ANNOTATION[connect]}")
-    hdr = (f"{'addr1':>9} {'reuse1':>6} {'addr2':>9} {'reuse2':>6} | "
-           f"{'b2/err':>10} | {'delivery':>22} | order")
+    hdr = (
+        f"{'addr1':>9} {'reuse1':>6} {'addr2':>9} {'reuse2':>6} | "
+        f"{'b2/err':>10} | {'delivery':>22} | order"
+    )
     print(hdr)
     print("-" * len(hdr))
     for addr1, addr2 in addr_configs:
         for reuse1 in REUSE_OPTS:
             for reuse2 in REUSE_OPTS:
-                res = run_scenario(addr1, reuse1, addr2, reuse2,
-                                   target, topology, connect)
+                res = run_scenario(
+                    addr1, reuse1, addr2, reuse2, target, topology, connect
+                )
                 if only_both_up and not (res["bound1"] and res["bound2"]):
                     continue
                 print(format_row(addr1, reuse1, addr2, reuse2, res))
 
 
 def main():
-    parser = argparse.ArgumentParser(description="UDP bind / REUSE / connect experiment")
-    parser.add_argument("--target", default=None,
-                        help="destination address (default: loopback + auto-detected non-loopback)")
-    parser.add_argument("--port", type=int, default=None,
-                        help="UDP port (default: a fresh random free port to isolate concurrent runs)")
-    parser.add_argument("--src", choices=["single", "dual", "many"], default="many",
-                        help="sender source-port topology")
-    parser.add_argument("--connect", choices=["none", "auto"], default=None,
-                        help="connect policy: 'none' or nc-faithful 'auto'; default sweeps both")
+    parser = argparse.ArgumentParser(
+        description="UDP bind / REUSE / connect experiment"
+    )
+    parser.add_argument(
+        "--target",
+        default=None,
+        help="destination address (default: loopback + auto-detected non-loopback)",
+    )
+    parser.add_argument(
+        "--port",
+        type=int,
+        default=None,
+        help="UDP port (default: a fresh random free port to isolate concurrent runs)",
+    )
+    parser.add_argument(
+        "--src",
+        choices=["single", "dual", "many"],
+        default="many",
+        help="sender source-port topology",
+    )
+    parser.add_argument(
+        "--connect",
+        choices=["none", "auto"],
+        default=None,
+        help="connect policy: 'none' or nc-faithful 'auto'; default sweeps both",
+    )
     parser.add_argument("--only-both-up", action="store_true")
     args = parser.parse_args()
 
@@ -403,9 +442,11 @@ def main():
     print(f"OS: {sys.platform} | port={PORT} | src={args.src}{sweep_note}")
 
     for target in targets:
-        target_note = ("non-loopback: only 0.0.0.0 sockets hear it"
-                       if target != "127.0.0.1"
-                       else "loopback: 127.0.0.1 sockets hear it")
+        target_note = (
+            "non-loopback: only 0.0.0.0 sockets hear it"
+            if target != "127.0.0.1"
+            else "loopback: 127.0.0.1 sockets hear it"
+        )
         print(f"\n########## TARGET {target}  ({target_note}) ##########")
         for connect in connect_policies:
             run_matrix(target, args.src, connect, args.only_both_up)
