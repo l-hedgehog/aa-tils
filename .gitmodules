@@ -1,0 +1,3 @@
+[submodule "2026-08/vminitd-ebpf-dns/ebpf/vmlinux.h"]
+	path = 2026-08/vminitd-ebpf-dns/ebpf/vmlinux.h
+	url = https://github.com/libbpf/vmlinux.h.git

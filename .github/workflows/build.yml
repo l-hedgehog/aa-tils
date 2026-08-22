@@ -1,0 +1,87 @@
+name: build-vminitd-ebpf-dns
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '2026-08/vminitd-ebpf-dns/**'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: >
+          Image tag to build and push. Should match the vminit base version
+          this folder's Dockerfile targets (default 0.40.1).
+        required: false
+        default: '0.40.1'
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: build-vminitd-ebpf-dns
+  cancel-in-progress: false
+
+env:
+  IMAGE: ghcr.io/${{ github.repository }}/vminitd-ebpf-dns
+  CARGO_NET_OFFLINE: 'true'
+  CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_LINKER: musl-gcc
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04-arm
+    defaults:
+      run:
+        working-directory: 2026-08/vminitd-ebpf-dns
+    steps:
+      - name: Checkout (with vmlinux.h submodule, pinned)
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 1
+
+      - name: Resolve build tag
+        run: echo "TAG=${{ inputs.tag || '0.40.1' }}" >> "$GITHUB_ENV"
+
+      - name: Install toolchain deps (clang, libbpf headers, musl linker)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            clang libbpf-dev linux-libc-dev musl-tools
+          clang --version | head -1
+
+      - name: Install rustc (aarch64-musl target)
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-unknown-linux-musl
+
+      - name: Build eBPF object (system libbpf + vmlinux.h submodule)
+        run: make -C ebpf
+
+      - name: Embed object into dnslink
+        run: cp ebpf/dns_sockaddr.bpf.o dnslink/
+
+      - name: Build static dnslink (aarch64-musl, zero crates)
+        run: |
+          cd dnslink
+          cargo build --release --target aarch64-unknown-linux-musl
+          file target/aarch64-unknown-linux-musl/release/dnslink
+
+      - name: Assemble custom init image (Apple Dockerfile pattern)
+        run: |
+          cp dnslink/target/aarch64-unknown-linux-musl/release/dnslink init-image/dnslink
+          chmod +x init-image/dnslink
+          docker build \
+            --build-arg VMINIT_VERSION="$TAG" \
+            -t "$IMAGE:$TAG" \
+            init-image
+
+      - name: Push to GHCR (public package)
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" \
+            | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+          docker push "$IMAGE:$TAG"
+          docker logout ghcr.io
+
+      - name: Show pushed reference
+        run: echo "pushed $IMAGE:$TAG"
