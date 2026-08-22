@@ -35,7 +35,7 @@ jobs:
         working-directory: 2026-08/vminitd-ebpf-dns
     steps:
       - name: Checkout (with vmlinux.h submodule, pinned)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           submodules: recursive
           fetch-depth: 1

@@ -45,7 +45,7 @@ vmlinux.h/                  git submodule (https://github.com/libbpf/vmlinux.h.g
 ebpf/                       dns_sockaddr.bpf.c + headers + Makefile
 dnslink/                    zero-dependency Rust loader/wrapper (aarch64-musl static)
 init-image/Dockerfile       Apple-doc pattern ("Use a custom init image")
-.github/workflows/build.yml native-arm64 CI: build eBPF -> dnslink -> init image -> push GHCR
+.github/workflows/vminitd-ebpf-dns.yml  native-arm64 CI: build eBPF -> dnslink -> init image -> push GHCR
 ```
 
 ## Design decisions
@@ -94,7 +94,7 @@ Device log should show `Run /sbin/vminitd` then
 
 ## CI / publishing
 
-`.github/workflows/build.yml` (repo root, native arm64 runner; path-scoped
+`.github/workflows/vminitd-ebpf-dns.yml` (repo root, native arm64 runner; path-scoped
 to this project so it only runs on changes here):
 
 1. checkout incl. the pinned `vmlinux.h` submodule
