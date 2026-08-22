@@ -7,12 +7,19 @@ on:
       - '2026-08/vminitd-ebpf-dns/**'
   workflow_dispatch:
     inputs:
+      vminit-version:
+        description: >
+          Tag of the upstream ghcr.io/apple/containerization/vminit base
+          image to build on. Leave empty to follow the latest scVersion in
+          apple/container's Package.swift.
+        required: false
+        default: ''
       tag:
         description: >
-          Image tag to build and push. Should match the vminit base version
-          this folder's Dockerfile targets (default 0.40.1).
+          Output tag to push to GHCR. Leave empty to default to the short
+          commit SHA of the commit that triggered this run.
         required: false
-        default: '0.40.1'
+        default: ''
 
 permissions:
   contents: read
@@ -40,8 +47,25 @@ jobs:
           submodules: recursive
           fetch-depth: 1
 
-      - name: Resolve build tag
-        run: echo "TAG=${{ inputs.tag || '0.40.1' }}" >> "$GITHUB_ENV"
+      - name: Resolve upstream vminit version and output tag
+        run: |
+          if [ -n "${{ inputs.vminit-version }}" ]; then
+            VMINIT_VERSION="${{ inputs.vminit-version }}"
+          else
+            VMINIT_VERSION="$(curl -fsSL --max-time 30 \
+              https://raw.githubusercontent.com/apple/container/main/Package.swift \
+              | sed -n 's/.*let scVersion = "\([^"]*\)".*/\1/p' | head -1)"
+            case "$VMINIT_VERSION" in
+              [0-9]*.[0-9]*.[0-9]) ;;
+              *) echo "couldn't parse scVersion, using 0.41.0"; VMINIT_VERSION="0.41.0" ;;
+            esac
+          fi
+
+          TAG="${{ inputs.tag }}"
+          [ -n "$TAG" ] || TAG="${GITHUB_SHA::7}"
+          echo "VMINIT_VERSION=$VMINIT_VERSION" >> "$GITHUB_ENV"
+          echo "TAG=$TAG" >> "$GITHUB_ENV"
+          echo "base vminit:$VMINIT_VERSION -> output $IMAGE:$TAG"
 
       - name: Install toolchain deps (clang, libbpf headers, musl linker)
         run: |
@@ -72,7 +96,7 @@ jobs:
           cp dnslink/target/aarch64-unknown-linux-musl/release/dnslink init-image/dnslink
           chmod +x init-image/dnslink
           docker build \
-            --build-arg VMINIT_VERSION="$TAG" \
+            --build-arg VMINIT_VERSION="$VMINIT_VERSION" \
             -t "$IMAGE:$TAG" \
             init-image
 
