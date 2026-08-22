@@ -1,0 +1,14 @@
+[package]
+name = "dnslink"
+version = "0.1.0"
+edition = "2021"
+description = "Static eBPF DNS-redirect loader (attach mode: cgroup sockaddr hooks)"
+
+# Zero external dependencies on purpose: cargo build must work fully offline
+# (CARGO_NET_OFFLINE=true) on a flaky network.
+
+[profile.release]
+opt-level = "s"
+lto = "thin"
+strip = true
+panic = "abort"

@@ -1,0 +1,289 @@
+//! dnslink — static eBPF DNS-redirect init/loader.
+//!
+//! Modes:
+//!   attach  — loader mode: attach hooks to a cgroup dir (--cgroup), optional
+//!             counter watch.
+//!   init    — PID1 boot wrapper: mount cgroup2, attach hooks to the root
+//!             cgroup, exec the real init replaying our argv (minus argv[0]).
+//!
+//! Both embed dns_sockaddr.bpf.o and default to the rule
+//! 127.0.8.6:53 -> 1.1.1.1:53, overridable via --bind-* / --target-*.
+
+mod bpf;
+mod elf;
+mod init;
+mod loader;
+
+use std::os::unix::io::AsRawFd;
+
+/// The embedded BPF object (dns_sockaddr.bpf.o, built by `make`).
+const EMBEDDED_OBJ: &[u8] = include_bytes!("../dns_sockaddr.bpf.o");
+
+/// "a.b.c.d" -> u32 (BE numeric value).
+fn aton(s: &str) -> Result<u32, String> {
+    let mut parts = s.split('.');
+    let mut v: u32 = 0;
+    for _ in 0..4 {
+        let p = parts
+            .next()
+            .ok_or_else(|| format!("bad IPv4 '{}'", s))?
+            .parse::<u32>()
+            .map_err(|_| format!("bad IPv4 '{}'", s))?;
+        if p > 255 {
+            return Err(format!("bad IPv4 '{}'", s));
+        }
+        v = (v << 8) | p;
+    }
+    if parts.next().is_some() {
+        return Err(format!("bad IPv4 '{}'", s));
+    }
+    Ok(v)
+}
+
+fn ip_str(ip: u32) -> String {
+    format!("{}.{}.{}.{}", (ip >> 24) & 0xff, (ip >> 16) & 0xff, (ip >> 8) & 0xff, ip & 0xff)
+}
+
+/// Mount procfs at /proc (idempotent; real vminitd does this itself later,
+/// but our PID1 wrapper runs before it and needs /proc/cmdline).
+fn mount_procfs() {
+    let mut src = b"proc".to_vec();
+    let mut tgt = b"/proc".to_vec();
+    let mut fst = b"proc".to_vec();
+    src.push(0);
+    tgt.push(0);
+    fst.push(0);
+    let _ = bpf::mount(src.as_ptr(), tgt.as_ptr(), fst.as_ptr(), 0, 0);
+}
+
+/// Parse /proc/cmdline for `dnslink.gateway=<ip>`; returns the IP if present.
+fn gateway_from_cmdline() -> Option<String> {
+    cmdline_value("dnslink.gateway")
+}
+
+/// Parse /proc/cmdline for `dnslink.port=<n>`; returns the port if present.
+fn port_from_cmdline() -> Option<u16> {
+    cmdline_value("dnslink.port").and_then(|s| Some(s.parse::<u16>().unwrap_or_default()))
+}
+
+/// Scan /proc/cmdline for `key=<value>` (space-separated kernel tokens).
+fn cmdline_value(key: &str) -> Option<String> {
+    let data = match std::fs::read("/proc/cmdline") {
+        Ok(d) => d,
+        Err(_) => return None,
+    };
+    let s = String::from_utf8_lossy(&data);
+    let prefix = format!("{}=", key);
+    for tok in s.split(' ') {
+        if let Some(rest) = tok.strip_prefix(prefix.as_str()) {
+            return Some(rest.to_owned());
+        }
+    }
+    None
+}
+
+fn usage() -> ! {
+    eprintln!("usage: dnslink <attach|init> [options]");
+    eprintln!("  attach: --cgroup <path> [--watch] [--obj <path>]");
+    eprintln!("  init:   [--cgroup-mount <dir>] [--real <path>] [--obj <path>]");
+    eprintln!("  both:   [--bind-ip <a.b.c.d>] [--bind-port <n>]");
+    eprintln!("          [--target-ip <a.b.c.d>] [--target-port <n>]");
+    std::process::exit(2);
+}
+
+fn main() {
+    let args: Vec<String> = std::env::args().collect();
+    // When invoked with argc==1 (PID1: kernel boots with argv = ["/sbin/vminitd"])
+    // default to init mode. Otherwise require an explicit attach|init subcommand.
+    let mode = if args.len() == 1 { "init".to_string() } else { args[1].as_str().to_string() };
+    if mode != "attach" && mode != "init" {
+        usage();
+    }
+
+    let mut cgroup: Option<String> = None;
+    let mut cgroup_mount: Option<String> = None;
+    let mut real_init = "/sbin/vminitd.real".to_string();
+    let mut obj_path: Option<String> = None;
+    let mut watch = false;
+    let mut bind_ip = "127.0.8.6".to_string();
+    let mut bind_port: u16 = 53;
+    let mut target_ip = "1.1.1.1".to_string();
+    let mut target_port: u16 = 53;
+
+    let mut i = 2;
+    while i < args.len() {
+        let a = &args[i];
+        match a.as_str() {
+            "--cgroup" => {
+                require(i + 1 < args.len(), || usage());
+                i += 1;
+                cgroup = Some(args[i].clone());
+            }
+            "--cgroup-mount" => {
+                require(i + 1 < args.len(), || usage());
+                i += 1;
+                cgroup_mount = Some(args[i].clone());
+            }
+            "--real" => {
+                require(i + 1 < args.len(), || usage());
+                i += 1;
+                real_init = args[i].clone();
+            }
+            "--obj" => {
+                require(i + 1 < args.len(), || usage());
+                i += 1;
+                obj_path = Some(args[i].clone());
+            }
+            "--watch" => watch = true,
+            "--bind-ip" => {
+                require(i + 1 < args.len(), || usage());
+                i += 1;
+                bind_ip = args[i].clone();
+            }
+            "--bind-port" => {
+                require(i + 1 < args.len(), || usage());
+                i += 1;
+                bind_port = args[i].parse::<u16>().unwrap_or_else(|_| usage());
+            }
+            "--target-ip" => {
+                require(i + 1 < args.len(), || usage());
+                i += 1;
+                target_ip = args[i].clone();
+            }
+            "--target-port" => {
+                require(i + 1 < args.len(), || usage());
+                i += 1;
+                target_port = args[i].parse::<u16>().unwrap_or_else(|_| usage());
+            }
+            _ => usage(),
+        }
+        i += 1;
+    }
+
+    // init mode: the upstream may be overridden via a kernel cmdline arg.
+    //   dnslink.gateway=<ip>  -> upstream <ip>:53
+    //   dnslink.port=<n>      -> port override
+    //   (no arg)              -> default 1.1.1.1:53
+    // The real vminitd mounts /proc itself — but that hasn't happened yet at
+    // PID1, so mount proc now so /proc/cmdline is readable.
+    if mode == "init" {
+        mount_procfs();
+        let default_port: u16 = 53;
+        match gateway_from_cmdline() {
+            Some(gw) => {
+                let port = port_from_cmdline().unwrap_or_else(|| default_port);
+                eprintln!("dnslink: upstream from /proc/cmdline: {}:{}", gw, port);
+                target_ip = gw;
+                target_port = port;
+            }
+            None => eprintln!("dnslink: no dnslink.gateway; upstream 1.1.1.1:53"),
+        }
+    }
+
+    // object bytes: --obj overrides the embedded copy
+    let obj: Vec<u8> = match &obj_path {
+        Some(p) => match std::fs::read(p) {
+            Ok(b) => b,
+            Err(e) => {
+                eprintln!("cannot read {}: {}", p, e);
+                std::process::exit(1);
+            }
+        },
+        None => EMBEDDED_OBJ.to_vec(),
+    };
+
+    let r_ip = aton(&bind_ip).unwrap_or_else(|e| { eprintln!("{}", e); std::process::exit(1); });
+    let a_ip = aton(&target_ip).unwrap_or_else(|e| { eprintln!("{}", e); std::process::exit(1); });
+    let rules: Vec<(u32, loader::Rule)> = vec![(
+        0,
+        loader::Rule {
+            requested_ip: r_ip,
+            actual_ip: a_ip,
+            requested_port: bind_port,
+            actual_port: target_port,
+        },
+    )];
+
+    let cfg = init::Ctx {
+        real_init,
+        cgroup_mount: cgroup_mount.unwrap_or_else(|| "/mnt".to_string()),
+    };
+
+    if mode == "attach" {
+        let cgroup = match cgroup {
+            Some(c) => c,
+            None => usage(),
+        };
+        attach_mode(&obj, &rules, &cgroup, watch);
+    } else {
+        // init mode: replay our argv[1..] onto the real init.
+        let init_args: Vec<String> = std::env::args().skip(1).map(|s| s.to_owned()).collect();
+        match init::run(&cfg, &rules, &obj, &init_args) {
+            Ok(_) => {}
+            Err(e) => {
+                eprintln!("dnslink init failed: {}; falling back to real init", e);
+                init::exec_real(&cfg.real_init, &init_args).unwrap_or_else(|e| {
+                    eprintln!("{}", e);
+                    std::process::exit(1);
+                });
+            }
+        }
+    }
+}
+
+fn require(b: bool, u: fn() -> !) {
+    if !b {
+        u()
+    }
+}
+
+/// attach mode entry.
+fn attach_mode(obj: &[u8], rules: &Vec<(u32, loader::Rule)>, cgroup: &str, watch: bool) {
+    let dir = match std::fs::File::open(cgroup) {
+        Ok(f) => f,
+        Err(e) => {
+            eprintln!("cannot open cgroup {}: {}", cgroup, e);
+            std::process::exit(1);
+        }
+    };
+    let cgroup_fd = dir.as_raw_fd() as i64;
+
+    println!("=== dnslink attach: hooks={} ===", if watch { "watch" } else { "attach" });
+    let wanted: Vec<String> = loader::HOOKS.iter().map(|(sfx, _, _, _)| format!("cgroup/{}", sfx)).collect();
+    let want_refs: Vec<&str> = wanted.iter().map(|s| s.as_str()).collect();
+    let loaded = loader::load_and_attach(obj, cgroup_fd, rules, &want_refs, true)
+        .unwrap_or_else(|e| {
+            eprintln!("load failed: {}", e);
+            std::process::exit(1);
+        });
+    println!("attached {} cgroup hook(s)", loaded.hooks.len());
+    if watch {
+        watch_hits(loaded.hit_map_fd);
+    }
+}
+
+/// Poll the PERCPU hit_cnt map (keys 0..2) and print on change.
+fn watch_hits(hit_fd: i64) {
+    let mut last: [i64; 3] = [-1; 3];
+    loop {
+        std::thread::sleep(std::time::Duration::from_secs(1));
+        let mut cur: [i64; 3] = [0; 3];
+        for key in 0..3usize {
+            let mut val = [0u8; 4096];
+            match bpf::bpf_map_lookup(hit_fd, &(key as u32).to_le_bytes(), &mut val) {
+                Ok(_) => {
+                    let mut sum: u64 = 0;
+                    for slot in 0..128 {
+                        sum += u64::from_le_bytes(val[slot * 8..slot * 8 + 8].try_into().unwrap());
+                    }
+                    cur[key] = sum as i64;
+                }
+                Err(_) => cur[key] = 0,
+            }
+        }
+        if cur != last {
+            println!("[hits] connect4={} udp4_sendmsg={} udp4_recvmsg={}", cur[0], cur[1], cur[2]);
+            last = cur;
+        }
+    }
+}

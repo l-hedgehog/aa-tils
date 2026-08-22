@@ -1,0 +1,9 @@
+# Build artifacts — everything is produced by the workflow (or a local build);
+# nothing below is committed.
+ebpf/dns_sockaddr.bpf.o
+dnslink/target/
+dnslink/dns_sockaddr.bpf.o
+init-image/dnslink
+
+# macOS
+.DS_Store
