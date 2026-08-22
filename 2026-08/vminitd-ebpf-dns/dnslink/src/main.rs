@@ -40,10 +40,6 @@ fn aton(s: &str) -> Result<u32, String> {
     Ok(v)
 }
 
-fn ip_str(ip: u32) -> String {
-    format!("{}.{}.{}.{}", (ip >> 24) & 0xff, (ip >> 16) & 0xff, (ip >> 8) & 0xff, ip & 0xff)
-}
-
 /// Mount procfs at /proc (idempotent; real vminitd does this itself later,
 /// but our PID1 wrapper runs before it and needs /proc/cmdline).
 fn mount_procfs() {

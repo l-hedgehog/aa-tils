@@ -10,16 +10,16 @@ pub struct Shdr {
     pub size: usize,
     pub link: usize,     // index of associated section (e.g. symtab for SHT_REL)
     pub info: usize,     // e.g. section targeted by relocs
-    pub addralign: u64,
+    pub _addralign: u64,
     pub entsize: usize,
 }
 
 pub struct Sym {
-    pub name: usize,     // index into linked strtab
-    pub info: u8,
+    pub _name: usize,    // index into linked strtab
+    pub _info: u8,
     pub shndx: i32,
     pub value: u64,
-    pub size: u64,
+    pub _size: u64,
 }
 
 pub struct Elf<'a> {
@@ -75,7 +75,7 @@ impl<'a> Elf<'a> {
             size: u64::from_le_bytes(s[32..40].try_into().unwrap()) as usize,
             link: u32::from_le_bytes(s[40..44].try_into().unwrap()) as usize,
             info: u32::from_le_bytes(s[44..48].try_into().unwrap()) as usize,
-            addralign: u64::from_le_bytes(s[48..56].try_into().unwrap()),
+            _addralign: u64::from_le_bytes(s[48..56].try_into().unwrap()),
             entsize: u64::from_le_bytes(s[56..64].try_into().unwrap()) as usize,
         })
     }
@@ -141,7 +141,7 @@ impl<'a> Elf<'a> {
                     .str_raw(strtab, name_off)
                     .map(|b| String::from_utf8_lossy(b).into_owned())
                     .unwrap_or_default();
-                out.push((nm, Sym { name: name_off, info, shndx, value, size }));
+                out.push((nm, Sym { _name: name_off, _info: info, shndx, value, _size: size }));
             }
             break; // first SHT_SYMTAB is enough
         }

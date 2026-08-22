@@ -17,7 +17,7 @@ pub struct Hook {
     pub name: String,
     pub prog_type: u32,
     pub attach_type: u32,
-    pub hit_key: u32,
+    pub _hit_key: u32,
 }
 
 pub const HOOKS: &[(&str, u32, u32, u32)] = &[
@@ -35,7 +35,7 @@ fn prog_for(section: &str) -> Option<Hook> {
                     name: section.to_string(),
                     prog_type: *pt,
                     attach_type: *at,
-                    hit_key: *key,
+                    _hit_key: *key,
                 });
             }
         }

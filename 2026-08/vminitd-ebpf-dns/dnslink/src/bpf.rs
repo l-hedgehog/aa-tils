@@ -225,7 +225,9 @@ pub fn bpf_map_lookup(map_fd: i64, key: &[u8], value: &mut [u8]) -> Result<i64, 
     bpf(BPF_MAP_LOOKUP_ELEM, &a, 32)
 }
 
-static mut LAST_LOG: [u8; (1 << 20)] = [0; (1 << 20)];
+const LOG_BUF_LEN: usize = 1 << 20;
+
+static mut LAST_LOG: [u8; LOG_BUF_LEN] = [0; LOG_BUF_LEN];
 static mut LAST_LOG_LEN: u32 = 0;
 
 /// Load a program section; returns its fd. On failure the verifier log is
@@ -242,13 +244,13 @@ pub fn bpf_prog_load(
     put_u64(&mut attr, attr::INSNS, insns.as_ptr() as u64);
     put_u64(&mut attr, attr::LICENSE, license.as_ptr() as u64);
     put_u32(&mut attr, attr::LOG_LEVEL, 1);
-    put_u32(&mut attr, attr::LOG_SIZE, unsafe { LAST_LOG.len() } as u32);
-    put_u64(&mut attr, attr::LOG_BUF, unsafe { LAST_LOG.as_ptr() } as u64);
+    put_u32(&mut attr, attr::LOG_SIZE, LOG_BUF_LEN as u32);
+    put_u64(&mut attr, attr::LOG_BUF, core::ptr::addr_of!(LAST_LOG) as *const u8 as u64);
     put_u32(&mut attr, attr::EXPECTED_ATTACH_TYPE, expected_attach);
     let res = bpf(BPF_PROG_LOAD, &attr, 128);
     // record how much the kernel wrote (it fills from the start)
     unsafe {
-        for i in 0..LAST_LOG.len() {
+        for i in 0..LOG_BUF_LEN {
             if LAST_LOG[i] == 0 {
                 LAST_LOG_LEN = i as u32;
                 break;

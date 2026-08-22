@@ -3,8 +3,9 @@
 Custom `vminitd` init image that installs DNS-redirection eBPF hooks at VM
 boot, then hands off to the stock Apple `vminitd`.
 
-Packages everything as **`ghcr.io/l-hedgehog/aa-tils/vminitd-ebpf-dns:0.40.1`**
-(public GHCR package; the tag matches the `vminit` base version).
+Pushed by CI to **`ghcr.io/l-hedgehog/aa-tils/vminitd-ebpf-dns:<tag>`**, where
+`<tag>` defaults to the short commit SHA that triggered the build (public
+GHCR package).
 
 ## How it works
 
@@ -56,8 +57,9 @@ init-image/Dockerfile       Apple-doc pattern ("Use a custom init image")
 - **dnslink**: static `aarch64-unknown-linux-musl`, hand-rolled syscalls,
   zero external crates — `cargo build` works fully offline.
 - **init image**: built with the Apple runtime-configuration Dockerfile
-  pattern: `FROM vminit:0.40.1`, keep the real init as `/sbin/vminitd.real`,
-  `COPY` the dnslink binary as `/sbin/vminitd`.
+  pattern: `FROM vminit:<scVersion>`, keep the real init as
+  `/sbin/vminitd.real`, `COPY` the dnslink binary as `/sbin/vminitd`. The base
+  `vminit` tag auto-follows apple/container's `scVersion` (current `0.41.0`).
 - **CI**: `ubuntu-24.04-arm` (native arm64, no Docker-in-Docker, no buildx),
   deps installed in the runner, image assembly is the only `docker build`.
 
@@ -108,4 +110,9 @@ to this project so it only runs on changes here):
    `secrets.GITHUB_TOKEN` (no PAT)
 
 Triggers: `push` to `main` (path-scoped to this folder) and `workflow_dispatch`
-(the `tag` input defaults to `0.40.1`).
+(two optional inputs):
+
+| input             | default when empty                       |
+|-------------------|------------------------------------------|
+| `vminit-version`  | auto-follow apple/container `scVersion`  |
+| `tag`             | short commit SHA of the triggering run   |
