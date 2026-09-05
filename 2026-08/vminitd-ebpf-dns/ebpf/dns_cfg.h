@@ -11,7 +11,9 @@
 #ifndef DNS_CFG_H
 #define DNS_CFG_H
 
+#ifndef WITH_BTF
 #include "bpf_map_def.h"
+#endif /* WITH_BTF */
 
 /* Whose eyes see a rule. A rule is one DNS redirect stated in both
  * directions; each hook only reads the half it can act on.
@@ -36,12 +38,21 @@ struct dns_rule {
 
 /* Index-addressable rule table; one shared instance serves every hook
  * section of the object. */
+#ifdef WITH_BTF
+struct {
+    __uint(type, BPF_MAP_TYPE_ARRAY);
+    __type(key, __u32);
+    __type(value, struct dns_rule);
+    __uint(max_entries, NUM_RULES);
+} cfg_map SEC(".maps");
+#else
 struct bpf_map_def cfg_map SEC(".maps") = {
     .type = BPF_MAP_TYPE_ARRAY,
     .key_size = sizeof(__u32),
     .value_size = sizeof(struct dns_rule),
     .max_entries = NUM_RULES,
 };
+#endif /* WITH_BTF */
 
 /* Hit-counter keys for the shared keyed hit_cnt (PERCPU_ARRAY: each CPU
  * accumulates into its own slot; the loader sums the slots per key).
@@ -54,12 +65,21 @@ enum dns_hit_key {
     DNS_HIT_XDP      = 3,  /* standalone XDP object: sole key on its private map */
 };
 
+#ifdef WITH_BTF
+struct {
+    __uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
+    __type(key, __u32);
+    __type(value, __u64);
+    __uint(max_entries, 4);
+} hit_cnt SEC(".maps");
+#else
 struct bpf_map_def hit_cnt SEC(".maps") = {
     .type = BPF_MAP_TYPE_PERCPU_ARRAY,
     .key_size = sizeof(__u32),
     .value_size = sizeof(__u64),
     .max_entries = 4,  /* keys 0..3: sockaddr object uses 0/1/2; xdp uses 3 on its own private instance */
 };
+#endif /* WITH_BTF */
 
 /* Find the rule whose (ip, port) side is the one the given direction sees.
  * Straight-line (no loop): this kernel's verifier rejects bounded loops and

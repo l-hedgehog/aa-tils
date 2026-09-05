@@ -24,13 +24,24 @@ MACHINE := $(shell uname -m)
 # system include dirs (clang finds /usr/include/bpf).
 BPF_SYSINC ?=
 
-BPF_CFLAGS := -O2 -target bpf -Wall $(BPF_SYSINC) -Ivmlinux.h/include/$(MACHINE)
+ifdef BTF
+    BTF_CFLAGS := -DWITH_BTF -g
+    LEGACY_MAP :=
+else
+    BTF_CFLAGS :=
+    LEGACY_MAP := bpf_map_def.h
+endif
+BPF_CFLAGS := $(BTF_CFLAGS) -O2 -target bpf -Wall $(BPF_SYSINC) -Ivmlinux.h/include/$(MACHINE)
 
 VMLINUX_H := vmlinux.h/include/$(MACHINE)/vmlinux.h
 
-dns_sockaddr.bpf.o: dns_sockaddr.bpf.c dns_cfg.h bpf_map_def.h $(VMLINUX_H)
+dns_sockaddr.bpf.o: dns_sockaddr.bpf.c dns_cfg.h $(LEGACY_MAP) $(VMLINUX_H)
 	$(CLANG) $(BPF_CFLAGS) -c $< -o $@
-	@printf '  built %-36s %6d bytes\n' "$@" "$$(stat -c%s "$@" 2>/dev/null || stat -f%z "$@")"
+	@printf '     built %-36s %6d bytes\n' "$@" "$$(stat -c%s "$@" 2>/dev/null || stat -f%z "$@")"
+ifdef BTF
+	llvm-strip -g $@
+	@printf '  stripped %-36s %6d bytes\n' "$@" "$$(stat -c%s "$@" 2>/dev/null || stat -f%z "$@")"
+endif
 
 clean:
 	rm -f dns_sockaddr.bpf.o
