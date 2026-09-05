@@ -16,15 +16,15 @@ stock one. PID 1 is our `dnslink` wrapper:
    upstream DNS server) and optional `dnslink.port=<port>` (default
    upstream `1.1.1.1:53`);
 2. mount cgroup2 at `/mnt`, load the embedded `dns_sockaddr.bpf.o` and attach
-   its 3 hooks (`cgroup/connect4`, `cgroup/udp4_sendmsg`,
-   `cgroup/udp4_recvmsg`) to the root cgroup — so **all descendant container
+   its 3 hooks (`cgroup/connect4`, `cgroup/sendmsg4`,
+   `cgroup/recvmsg4`) to the root cgroup — so **all descendant container
    cgroups** inherit the redirect;
 3. `exec` the real init as `/sbin/vminitd.real`, replaying our argv.
 
 Every DNS query that nameserver-aware apps send to e.g. `127.0.8.6:53` is
 transparently redirected to the configured upstream `<ip>:<port>` (default
 `1.1.1.1:53`).
-The `udp4_recvmsg` hook rewrites the reported source back so resolvers that
+The `recvmsg4` hook rewrites the reported source back so resolvers that
 verify the peer (musl `getent`) see the requested nameserver.
 
 Config reference (`container run --kernel-arg ...`):

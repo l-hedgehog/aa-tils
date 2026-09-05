@@ -278,7 +278,7 @@ fn watch_hits(hit_fd: i64) {
             }
         }
         if cur != last {
-            println!("[hits] connect4={} udp4_sendmsg={} udp4_recvmsg={}", cur[0], cur[1], cur[2]);
+            println!("[hits] connect4={} sendmsg4={} recvmsg4={}", cur[0], cur[1], cur[2]);
             last = cur;
         }
     }

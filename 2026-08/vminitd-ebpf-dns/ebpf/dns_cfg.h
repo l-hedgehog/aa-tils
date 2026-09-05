@@ -19,8 +19,8 @@
  *   requested_* = the nameserver the resolver believes it queried.
  *   actual_*    = where the query is really sent to / answered from. */
 enum dns_dir {
-    DNS_QUERY  = 0,  /* connect4 / udp4_sendmsg hooks: egress, before send   */
-    DNS_ANSWER = 1,  /* udp4_recvmsg / xdp hooks: ingress, answer arrives    */
+    DNS_QUERY  = 0,  /* connect4 / sendmsg4 hooks: egress, before send   */
+    DNS_ANSWER = 1,  /* recvmsg4 / xdp hooks: ingress, answer arrives    */
 };
 
 /* One redirect rule. Field order keeps the two __u32 IPs first so the struct
@@ -49,8 +49,8 @@ struct bpf_map_def cfg_map SEC(".maps") = {
  *   a standalone object (e.g. xdp) uses key DNS_HIT_XDP on its own map. */
 enum dns_hit_key {
     DNS_HIT_CONNECT4 = 0,  /* BPF_CGROUP_INET4_CONNECT (attach 10) */
-    DNS_HIT_SENDMSG  = 1,  /* BPF_CGROUP_UDP4_SENDMSG  (attach 14) */
-    DNS_HIT_RECVMSG  = 2,  /* BPF_CGROUP_UDP4_RECVMSG  (attach 19) */
+    DNS_HIT_SENDMSG4 = 1,  /* BPF_CGROUP_UDP4_SENDMSG  (attach 14) */
+    DNS_HIT_RECVMSG4 = 2,  /* BPF_CGROUP_UDP4_RECVMSG  (attach 19) */
     DNS_HIT_XDP      = 3,  /* standalone XDP object: sole key on its private map */
 };
 

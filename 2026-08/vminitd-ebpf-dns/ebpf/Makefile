@@ -1,5 +1,5 @@
 # Builds the ONE eBPF object dnslink embeds: dns_sockaddr.bpf.o
-# (sections cgroup/connect4 + cgroup/udp4_sendmsg + cgroup/udp4_recvmsg,
+# (sections cgroup/connect4 + cgroup/sendmsg4 + cgroup/recvmsg4,
 # sharing one cfg_map + keyed hit_cnt).
 #
 # On the GitHub ubuntu-24.04-arm runner (and any Linux with the same deps):

@@ -23,8 +23,8 @@ pub struct Hook {
 pub const HOOKS: &[(&str, u32, u32, u32)] = &[
     // (section suffix, prog_type, attach_type, hit_key)
     ("connect4", bpf::BPF_PROG_TYPE_CGROUP_SOCK_ADDR, bpf::BPF_CGROUP_INET4_CONNECT, 0),
-    ("udp4_sendmsg", bpf::BPF_PROG_TYPE_CGROUP_SOCK_ADDR, bpf::BPF_CGROUP_UDP4_SENDMSG, 1),
-    ("udp4_recvmsg", bpf::BPF_PROG_TYPE_CGROUP_SOCK_ADDR, bpf::BPF_CGROUP_UDP4_RECVMSG, 2),
+    ("sendmsg4", bpf::BPF_PROG_TYPE_CGROUP_SOCK_ADDR, bpf::BPF_CGROUP_UDP4_SENDMSG, 1),
+    ("recvmsg4", bpf::BPF_PROG_TYPE_CGROUP_SOCK_ADDR, bpf::BPF_CGROUP_UDP4_RECVMSG, 2),
 ];
 
 fn prog_for(section: &str) -> Option<Hook> {
