@@ -4,7 +4,9 @@
 use crate::bpf;
 use crate::elf::Elf;
 use std::fmt;
+use std::fs::File;
 use std::net::{Ipv4Addr, SocketAddrV4};
+use std::os::fd::AsRawFd;
 
 /// One redirect rule (on-disk ABI: `<IIHH`, 12 bytes).
 pub struct Rule {
@@ -76,7 +78,7 @@ pub struct Loaded {
 /// cgroup hooks that `wanted` allows. Returns the hit_cnt map fd.
 pub fn load_and_attach(
     obj: &[u8],
-    cgroup_dir_fd: i64,
+    cgroup_dir: &File,
     rules: &Vec<(u32, Rule)>,
     wanted: &[&str],
     verbose: bool,
@@ -204,6 +206,7 @@ pub fn load_and_attach(
         }
 
         // BPF_PROG_ATTACH
+        let cgroup_dir_fd = cgroup_dir.as_raw_fd() as i64;
         bpf::bpf_prog_attach(cgroup_dir_fd, fd, hook.attach_type)
             .map_err(|e| format!("attach {} to cgroup: {}", name, bpf::err_str(e)))?;
         println!("  attached {} to cgroup (attach {})", name, hook.attach_type);

@@ -13,9 +13,9 @@ mod bpf;
 mod elf;
 mod init;
 mod loader;
+mod sys;
 
 use std::net::{AddrParseError, Ipv4Addr};
-use std::os::unix::io::AsRawFd;
 
 /// The embedded BPF object (dns_sockaddr.bpf.o, built by `make`).
 const EMBEDDED_OBJ: &[u8] = include_bytes!("../dns_sockaddr.bpf.o");
@@ -28,13 +28,7 @@ fn aton(s: &str) -> Result<u32, AddrParseError> {
 /// Mount procfs at /proc (idempotent; real vminitd does this itself later,
 /// but our PID1 wrapper runs before it and needs /proc/cmdline).
 fn mount_procfs() {
-    let mut src = b"proc".to_vec();
-    let mut tgt = b"/proc".to_vec();
-    let mut fst = b"proc".to_vec();
-    src.push(0);
-    tgt.push(0);
-    fst.push(0);
-    let _ = bpf::mount(src.as_ptr(), tgt.as_ptr(), fst.as_ptr(), 0, 0);
+    let _ = sys::mount("proc", "/proc", "proc", 0);
 }
 
 /// Parse /proc/cmdline for `dnslink.gateway=<ip>`; returns the IP if present.
@@ -225,19 +219,18 @@ fn require(b: bool, u: fn() -> !) {
 
 /// attach mode entry.
 fn attach_mode(obj: &[u8], rules: &Vec<(u32, loader::Rule)>, cgroup: &str, watch: bool) {
-    let dir = match std::fs::File::open(cgroup) {
+    let cgroup_dir = match std::fs::File::open(cgroup) {
         Ok(f) => f,
         Err(e) => {
             eprintln!("cannot open cgroup {}: {}", cgroup, e);
             std::process::exit(1);
         }
     };
-    let cgroup_fd = dir.as_raw_fd() as i64;
 
     println!("=== dnslink attach: hooks={} ===", if watch { "watch" } else { "attach" });
     let wanted: Vec<String> = loader::HOOKS.iter().map(|(sfx, _, _, _)| format!("cgroup/{}", sfx)).collect();
     let want_refs: Vec<&str> = wanted.iter().map(|s| s.as_str()).collect();
-    let loaded = loader::load_and_attach(obj, cgroup_fd, rules, &want_refs, true)
+    let loaded = loader::load_and_attach(obj, &cgroup_dir, rules, &want_refs, true)
         .unwrap_or_else(|e| {
             eprintln!("load failed: {}", e);
             std::process::exit(1);

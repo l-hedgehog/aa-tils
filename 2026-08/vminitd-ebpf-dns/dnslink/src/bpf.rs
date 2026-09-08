@@ -1,23 +1,7 @@
-//! Raw aarch64-Linux syscalls + bpf_attr builders (no libc crate, no crates.io
-//! fetch). Attach mode needs only `bpf()`; init mode adds mount/execve later.
+//! Raw aarch64-Linux BPF syscalls + bpf_attr builders.
 
-#![allow(dead_code)]
-
-// aarch64 Linux syscall numbers (asm-generic/unistd.h)
+// aarch64 Linux syscall number (asm-generic/unistd.h)
 pub const SYS_BPF: u64 = 280;
-pub const SYS_MOUNT: u64 = 40;
-pub const SYS_OPENAT: u64 = 56;
-pub const SYS_CLOSE: u64 = 57;
-pub const SYS_EXECVE: u64 = 221;
-pub const SYS_SETSID: u64 = 112;
-pub const SYS_PRCTL: u64 = 167;
-
-// openat flags / path constants
-pub const O_RDONLY: u64 = 0;
-pub const O_DIRECTORY: u64 = 0x10000;
-pub const AT_FDCWD: i64 = -100;
-pub const AF_UNIX: u64 = 1;
-pub const AF_INET: u64 = 2;
 
 #[inline(always)]
 unsafe fn syscall3(n: u64, a1: u64, a2: u64, a3: u64) -> i64 {
@@ -28,39 +12,6 @@ unsafe fn syscall3(n: u64, a1: u64, a2: u64, a3: u64) -> i64 {
         in("x0") a1,
         in("x1") a2,
         in("x2") a3,
-        lateout("x0") ret,
-        options(nostack)
-    );
-    ret
-}
-
-#[inline(always)]
-unsafe fn syscall4(n: u64, a1: u64, a2: u64, a3: u64, a4: u64) -> i64 {
-    let ret: i64;
-    core::arch::asm!(
-        "svc 0",
-        in("x8") n,
-        in("x0") a1,
-        in("x1") a2,
-        in("x2") a3,
-        in("x3") a4,
-        lateout("x0") ret,
-        options(nostack)
-    );
-    ret
-}
-
-#[inline(always)]
-unsafe fn syscall5(n: u64, a1: u64, a2: u64, a3: u64, a4: u64, a5: u64) -> i64 {
-    let ret: i64;
-    core::arch::asm!(
-        "svc 0",
-        in("x8") n,
-        in("x0") a1,
-        in("x1") a2,
-        in("x2") a3,
-        in("x3") a4,
-        in("x4") a5,
         lateout("x0") ret,
         options(nostack)
     );
@@ -82,66 +33,9 @@ pub fn bpf(cmd: u32, attr: &[u8], size: u32) -> Result<i64, i32> {
     check(ret)
 }
 
-/// mount(source, target, fstype, flags, data) — used by init mode.
-pub fn mount(
-    source: *const u8,
-    target: *const u8,
-    fstype: *const u8,
-    flags: u64,
-    data: u64, // NULL page/mountopts pointer; pass 0
-) -> Result<i64, i32> {
-    let ret = unsafe {
-        syscall5(SYS_MOUNT, source as u64, target as u64, fstype as u64, flags, data)
-    };
-    check(ret)
-}
-
-/// openat(dirfd, path, flags, mode) — used to open the cgroup dir.
-pub fn openat(dirfd: i64, path: &str, flags: u64, mode: u64) -> Result<i64, i32> {
-    let ret = unsafe {
-        syscall4(
-            SYS_OPENAT,
-            dirfd as u64,
-            path.as_ptr() as u64,
-            flags,
-            mode,
-        )
-    };
-    check(ret)
-}
-
-/// close(fd)
-pub fn close(fd: i64) -> Result<i64, i32> {
-    check(unsafe { syscall3(SYS_CLOSE, fd as u64, 0, 0) })
-}
-
-/// execve(path, argv, envp) — passes raw C nul-terminated string buffers as
-/// argvptr/envptr (the caller keeps them alive). Never returns on success.
-pub fn execve(path: *const u8, argv: &Vec<u64>, envp: &Vec<u64>) -> Result<i64, i32> {
-    let ret = unsafe { syscall3(SYS_EXECVE, path as u64, argv.as_ptr() as u64, envp.as_ptr() as u64) };
-    check(ret) // only returns on error
-}
-
+/// Readable name for a raw errno value ("File exists (os error 17)" etc.).
 pub fn err_str(err: i32) -> String {
-    let name = match err {
-        1 => "EPERM",
-        2 => "ENOENT",
-        5 => "EIO",
-        12 => "ENOMEM",
-        13 => "EACCES",
-        14 => "EFAULT",
-        16 => "EBUSY",
-        17 => "EEXIST",
-        19 => "ENODEV",
-        20 => "ENOTDIR",
-        21 => "EISDIR",
-        22 => "EINVAL",
-        23 => "ENFILE",
-        24 => "EMFILE",
-        28 => "ENOSPC",
-        _ => "EUNKNOWN",
-    };
-    format!("{} (-{})", name, err)
+    format!("{}", std::io::Error::from_raw_os_error(err))
 }
 
 // ---------- bpf command + attribute constants ----------
@@ -151,12 +45,8 @@ pub const BPF_MAP_UPDATE_ELEM: u32 = 2;
 pub const BPF_PROG_LOAD: u32 = 5;
 pub const BPF_PROG_ATTACH: u32 = 8;
 
-pub const BPF_MAP_TYPE_ARRAY: u32 = 2;
-pub const BPF_MAP_TYPE_PERCPU_ARRAY: u32 = 6;
-
 // prog / attach types (this 6.18 ABI)
 pub const BPF_PROG_TYPE_CGROUP_SOCK_ADDR: u32 = 18;
-pub const BPF_PROG_TYPE_XDP: u32 = 6;
 pub const BPF_CGROUP_INET4_CONNECT: u32 = 10;
 pub const BPF_CGROUP_UDP4_SENDMSG: u32 = 14;
 pub const BPF_CGROUP_UDP4_RECVMSG: u32 = 19;
@@ -185,7 +75,6 @@ pub mod attr {
     pub const MAP_FD: usize = 0;
     pub const KEY: usize = 8;
     pub const VALUE: usize = 16;
-    pub const FLAGS: usize = 24;
 }
 
 fn put_u32(attr: &mut [u8], off: usize, v: u32) {

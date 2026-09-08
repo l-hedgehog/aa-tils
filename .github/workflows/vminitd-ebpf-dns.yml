@@ -31,7 +31,6 @@ concurrency:
 
 env:
   IMAGE: ghcr.io/${{ github.repository }}/vminitd-ebpf-dns
-  CARGO_NET_OFFLINE: 'true'
   CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_LINKER: musl-gcc
 
 jobs:
@@ -79,13 +78,18 @@ jobs:
         with:
           targets: aarch64-unknown-linux-musl
 
+      - name: Cache cargo registry + build artifacts
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: 2026-08/vminitd-ebpf-dns/dnslink
+
       - name: Build eBPF object (system libbpf + vmlinux.h submodule)
         run: make -C ebpf
 
       - name: Embed object into dnslink
         run: cp ebpf/dns_sockaddr.bpf.o dnslink/
 
-      - name: Build static dnslink (aarch64-musl, zero crates)
+      - name: Build static dnslink (aarch64-musl)
         run: |
           cd dnslink
           cargo build --release --target aarch64-unknown-linux-musl

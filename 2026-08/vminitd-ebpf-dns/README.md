@@ -46,7 +46,6 @@ vmlinux.h/                  git submodule (https://github.com/libbpf/vmlinux.h.g
 ebpf/                       dns_sockaddr.bpf.c + headers + Makefile
 dnslink/                    zero-dependency Rust loader/wrapper (aarch64-musl static)
 init-image/Dockerfile       Apple-doc pattern ("Use a custom init image")
-.github/workflows/vminitd-ebpf-dns.yml  native-arm64 CI: build eBPF -> dnslink -> init image -> push GHCR
 ```
 
 ## Design decisions
@@ -54,8 +53,8 @@ init-image/Dockerfile       Apple-doc pattern ("Use a custom init image")
 - **eBPF**: built from source with the **system** `libbpf-dev` (no vendored
   headers) + pinned `vmlinux.h` submodule; the Makefile builds exactly the one
   object dnslink embeds.
-- **dnslink**: static `aarch64-unknown-linux-musl`, hand-rolled syscalls,
-  zero external crates — `cargo build` works fully offline.
+- **dnslink**: static `aarch64-unknown-linux-musl`. The BPF syscalls are
+  hand-rolled; other syscalls (mount/execve) depend on the `libc` crate.
 - **init image**: built with the Apple runtime-configuration Dockerfile
   pattern: `FROM vminit:<scVersion>`, keep the real init as
   `/sbin/vminitd.real`, `COPY` the dnslink binary as `/sbin/vminitd`. The base
@@ -96,18 +95,7 @@ Device log should show `Run /sbin/vminitd` then
 
 ## CI / publishing
 
-`.github/workflows/vminitd-ebpf-dns.yml` (repo root, native arm64 runner; path-scoped
-to this project so it only runs on changes here):
-
-1. checkout incl. the pinned `vmlinux.h` submodule
-2. `apt-get install clang libbpf-dev linux-libc-dev musl-tools`; `rustup` via
-   `dtolnay/rust-toolchain` (adds `aarch64-unknown-linux-musl`)
-3. `make -C ebpf` -> `dns_sockaddr.bpf.o`
-4. `cp ebpf/dns_sockaddr.bpf.o dnslink/`
-5. `cargo build --release --target aarch64-unknown-linux-musl` (offline)
-6. `docker build` the init image (Apple pattern)
-7. `docker push ghcr.io/l-hedgehog/aa-tils/vminitd-ebpf-dns:<tag>` using
-   `secrets.GITHUB_TOKEN` (no PAT)
+See `.github/workflows/vminitd-ebpf-dns.yml` at repo root.
 
 Triggers: `push` to `main` (path-scoped to this folder) and `workflow_dispatch`
 (two optional inputs):
