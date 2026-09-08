@@ -13,3 +13,4 @@ FROM ghcr.io/apple/containerization/vminit:${VMINIT_VERSION} AS base
 FROM ghcr.io/apple/containerization/vminit:${VMINIT_VERSION}
 COPY --from=base /sbin/vminitd /sbin/vminitd.real
 COPY dnslink /sbin/vminitd
+COPY mnt /mnt

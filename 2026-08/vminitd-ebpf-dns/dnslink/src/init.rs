@@ -7,57 +7,89 @@
 //! creates after boot) inherit them. Finally we exec the real init, replaying
 //! the argv[1..] we were launched with.
 
+use std::fs;
 use std::io::{self, ErrorKind};
+use std::path::Path;
 
 use crate::loader;
 use crate::sys;
 
 pub struct Ctx {
-    pub real_init: String,    // path to the real init, e.g. /sbin/vminitd.real
-    pub cgroup_mount: String, // existing initfs dir to mount cgroup2 at, e.g. /mnt
+    pub real_init: String, // path to the real init, e.g. /sbin/vminitd.real
+    pub mount_base: String, // parent dir of the boot-time mounts: <base>/cgroup (cgroup2),
+                           // <base>/bpf (bpffs pins)
 }
 
 /// Run the boot wrapper: mount cgroup2, attach hooks, exec real init.
 /// Returns on failure (caller may fall back to a bare exec).
-pub fn run(
+pub fn run<P: AsRef<Path>>(
     cfg: &Ctx,
     rules: &Vec<(u32, loader::Rule)>,
     obj: &[u8],
+    pin_basedir: P,
     passed_args: &[String],
 ) -> io::Result<()> {
-    // 1. mount cgroup2 at the chosen initfs dir.
-    match sys::mount("none", &cfg.cgroup_mount, "cgroup2", 0) {
-        Ok(_) => println!("dnslink: mounted cgroup2 at {}", cfg.cgroup_mount),
-        // EEXIST(17)/EBUSY(16): already mounted by a parent. The hierarchy
-        // is shared, so attach onto it regardless. Anything else: continue
-        // unhooked rather than hang boot.
+    // 1. mount cgroup2 at <base>/cgroup; create it first (the init rootfs
+    //    only has <base> itself, e.g. /mnt).
+    let cgroup_mount = Path::new(&cfg.mount_base).join("cgroup");
+    match fs::create_dir_all(&cgroup_mount) {
+        Ok(()) => {}
+        Err(e) => {
+            eprintln!(
+                "dnslink: mkdir -p {}: {}; running real init without DNS redirect",
+                cgroup_mount.display(),
+                e
+            );
+            return exec_real(cfg.real_init.as_str(), passed_args);
+        }
+    }
+    match sys::mount("none", cgroup_mount.to_str().unwrap(), "cgroup2", 0) {
+        Ok(()) => println!("dnslink: mounted cgroup2 at {}", cgroup_mount.display()),
+        // EEXIST/EBUSY: already mounted by a parent. The hierarchy is shared,
+        // so attach onto it regardless. Anything else: continue unhooked
+        // rather than hang boot.
         Err(e) if e.kind() == ErrorKind::AlreadyExists || e.kind() == ErrorKind::ResourceBusy => {
-            eprintln!("dnslink: cgroup2 at {} already mounted (EEXIST/EBUSY); sharing", cfg.cgroup_mount);
+            eprintln!(
+                "dnslink: cgroup2 at {} already mounted (EEXIST/EBUSY); sharing",
+                cgroup_mount.display()
+            );
         }
         Err(e) => {
-            eprintln!("dnslink: cgroup2 mount {}: {}; continuing unhooked", cfg.cgroup_mount, e);
+            eprintln!(
+                "dnslink: mount -t cgroup2 none {}: {}; running real init without DNS redirect",
+                cgroup_mount.display(),
+                e
+            );
             return exec_real(cfg.real_init.as_str(), passed_args);
         }
     }
 
     // 2. attach the three sockaddr hooks to the root cgroup view.
-    let want_names: Vec<String> = loader::HOOKS.iter().map(|(sfx, _, _, _)| format!("cgroup/{}", sfx)).collect();
-    let want_refs: Vec<&str> = want_names.iter().map(|s| s.as_str()).collect();
     use std::fs::File;
 
-    let cgroup_dir = match File::open(&cfg.cgroup_mount) {
+    let cgroup_dir = match File::open(&cgroup_mount) {
         Ok(f) => f,
         Err(e) => {
-            eprintln!("dnslink: open {}: {}; continuing unhooked", cfg.cgroup_mount, e);
+            eprintln!(
+                "dnslink: open {}: {}; running real init without DNS redirect",
+                cgroup_mount.display(),
+                e
+            );
             return exec_real(cfg.real_init.as_str(), passed_args);
         }
     };
-    match loader::load_and_attach(obj, &cgroup_dir, rules, &want_refs, false) {
+    match loader::load_and_attach(obj, &cgroup_dir, rules, pin_basedir, false) {
         Ok(loaded) => {
-            println!("dnslink: attached {} cgroup hook(s) at {}",
-                loaded.hooks.len(), cfg.cgroup_mount);
+            println!(
+                "dnslink: attached {} cgroup hook(s) at {}",
+                loaded.hooks.len(),
+                cgroup_mount.display()
+            );
         }
-        Err(e) => eprintln!("dnslink: hook attach failed: {}; continuing unhooked", e),
+        Err(e) => eprintln!(
+            "dnslink: hook attach failed: {}; running real init without DNS redirect",
+            e
+        ),
     }
 
     // 3. hand off to the real init.

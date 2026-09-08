@@ -4,10 +4,13 @@ version = "0.1.0"
 edition = "2021"
 description = "Static eBPF DNS-redirect loader (attach mode: cgroup sockaddr hooks)"
 
-# One external crate (libc) for the non-bpf syscalls (mount/execve);
-# everything else stays hand-rolled so builds stay light.
+# aya is the only loader; anyhow/procfs back aya errors and procfs/mountinfo;
+# libc provides the handful of non-bpf syscalls (mount/execve) in sys.rs.
 [dependencies]
+anyhow = "1.0.104"
+aya = "0.14.0"
 libc = "0.2.189"
+procfs = { version = "0.18.0", default-features = false }
 
 [profile.release]
 opt-level = "s"
