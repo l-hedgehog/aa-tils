@@ -1,5 +1,4 @@
-/* dns_cfg.h — shared DNS-redirect rule set for the socket-layer object and
- * the standalone XDP answer object.
+/* dns_cfg.h — shared DNS-redirect rule set for the socket-layer object.
  *
  * A single struct dns_rule describes one whole redirect; the direction is a
  * match_rule() argument, so one rule serves both query and answer hooks.
@@ -22,7 +21,7 @@
  *   actual_*    = where the query is really sent to / answered from. */
 enum dns_dir {
     DNS_QUERY  = 0,  /* connect4 / sendmsg4 hooks: egress, before send   */
-    DNS_ANSWER = 1,  /* recvmsg4 / xdp hooks: ingress, answer arrives    */
+    DNS_ANSWER = 1,  /* recvmsg4 hook: ingress, answer arrives           */
 };
 
 /* One redirect rule. Field order keeps the two __u32 IPs first so the struct
@@ -34,7 +33,8 @@ struct dns_rule {
     __u16 actual_port;    /* written by DNS_QUERY hooks, matched by ANSWER  */
 };
 
-#define NUM_RULES 2
+/* Both glibc and musl set MAXNS to 3. */
+#define MAXNS 3
 
 /* Index-addressable rule table; one shared instance serves every hook
  * section of the object. */
@@ -43,26 +43,25 @@ struct {
     __uint(type, BPF_MAP_TYPE_ARRAY);
     __type(key, __u32);
     __type(value, struct dns_rule);
-    __uint(max_entries, NUM_RULES);
+    __uint(max_entries, MAXNS);
+    __uint(pinning, LIBBPF_PIN_BY_NAME);
 } cfg_map SEC(".maps");
 #else
-struct bpf_map_def cfg_map SEC(".maps") = {
+struct bpf_map_def cfg_map SEC("maps") = {
     .type = BPF_MAP_TYPE_ARRAY,
     .key_size = sizeof(__u32),
     .value_size = sizeof(struct dns_rule),
-    .max_entries = NUM_RULES,
+    .max_entries = MAXNS,
 };
 #endif /* WITH_BTF */
 
 /* Hit-counter keys for the shared keyed hit_cnt (PERCPU_ARRAY: each CPU
  * accumulates into its own slot; the loader sums the slots per key).
- *   max_entries = 4 covers all keys: the sockaddr object uses 0/1/2;
- *   a standalone object (e.g. xdp) uses key DNS_HIT_XDP on its own map. */
+ *   max_entries = 3: one key per sockaddr hook, 0..2. */
 enum dns_hit_key {
     DNS_HIT_CONNECT4 = 0,  /* BPF_CGROUP_INET4_CONNECT (attach 10) */
     DNS_HIT_SENDMSG4 = 1,  /* BPF_CGROUP_UDP4_SENDMSG  (attach 14) */
     DNS_HIT_RECVMSG4 = 2,  /* BPF_CGROUP_UDP4_RECVMSG  (attach 19) */
-    DNS_HIT_XDP      = 3,  /* standalone XDP object: sole key on its private map */
 };
 
 #ifdef WITH_BTF
@@ -70,14 +69,15 @@ struct {
     __uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
     __type(key, __u32);
     __type(value, __u64);
-    __uint(max_entries, 4);
+    __uint(max_entries, 3);
+    __uint(pinning, LIBBPF_PIN_BY_NAME);
 } hit_cnt SEC(".maps");
 #else
-struct bpf_map_def hit_cnt SEC(".maps") = {
+struct bpf_map_def hit_cnt SEC("maps") = {
     .type = BPF_MAP_TYPE_PERCPU_ARRAY,
     .key_size = sizeof(__u32),
     .value_size = sizeof(__u64),
-    .max_entries = 4,  /* keys 0..3: sockaddr object uses 0/1/2; xdp uses 3 on its own private instance */
+    .max_entries = 3,  /* keys 0..2, one per sockaddr hook */
 };
 #endif /* WITH_BTF */
 
@@ -86,7 +86,7 @@ struct bpf_map_def hit_cnt SEC(".maps") = {
  * clang's BPF target won't fully unroll one behind a helper call. */
 static struct dns_rule *match_rule(__u32 ip4, __u16 port, enum dns_dir dir)
 {
-    __u32 key0 = 0, key1 = 1;
+    __u32 key0 = 0, key1 = 1, key2 = 2;
     struct dns_rule *r;
 
     r = bpf_map_lookup_elem(&cfg_map, &key0);
@@ -100,6 +100,16 @@ static struct dns_rule *match_rule(__u32 ip4, __u16 port, enum dns_dir dir)
     }
 
     r = bpf_map_lookup_elem(&cfg_map, &key1);
+    if (r) {
+        if (dir == DNS_QUERY &&
+                ip4 == r->requested_ip && port == r->requested_port)
+            return r;
+        if (dir == DNS_ANSWER &&
+                ip4 == r->actual_ip && port == r->actual_port)
+            return r;
+    }
+
+    r = bpf_map_lookup_elem(&cfg_map, &key2);
     if (r) {
         if (dir == DNS_QUERY &&
                 ip4 == r->requested_ip && port == r->requested_port)

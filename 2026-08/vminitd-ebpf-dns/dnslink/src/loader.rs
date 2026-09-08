@@ -3,13 +3,32 @@
 
 use crate::bpf;
 use crate::elf::Elf;
+use std::fmt;
+use std::net::{Ipv4Addr, SocketAddrV4};
 
 /// One redirect rule (on-disk ABI: `<IIHH`, 12 bytes).
 pub struct Rule {
-    pub requested_ip: u32, // BE numeric (a.b.c.d -> a<<24|b<<16|c<<8|d), stored native
+    pub requested_ip: u32,
     pub actual_ip: u32,
     pub requested_port: u16,
     pub actual_port: u16,
+}
+
+impl fmt::Display for Rule {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "{} <-> {}",
+            SocketAddrV4::new(
+                Ipv4Addr::from_bits(u32::from_be(self.requested_ip)),
+                u16::from_be(self.requested_port),
+            ),
+            SocketAddrV4::new(
+                Ipv4Addr::from_bits(u32::from_be(self.actual_ip)),
+                u16::from_be(self.actual_port),
+            ),
+        )
+    }
 }
 
 /// Program descriptors derived from section names.
@@ -65,7 +84,7 @@ pub fn load_and_attach(
     let elf = Elf::new(obj).ok_or("not a valid ELF/BPF object")?;
 
     // ---- maps ----------------------------------------------------------
-    let maps_sec = elf.find(".maps").ok_or("no .maps section")?;
+    let maps_sec = elf.find("maps").ok_or("no maps section")?;
     let maps_sh = elf.shdr(maps_sec).unwrap();
     let mut name_fd: Vec<(String, i64)> = Vec::new();
     for (nm, sym) in elf.symtab() {
@@ -95,29 +114,16 @@ pub fn load_and_attach(
     // ---- populate cfg_map ----------------------------------------------
     for (idx, rule) in rules {
         let mut val = [0u8; 12];
-        // IPs are stored in network-octet order (`7f 00 08 06` for 127.0.8.6);
-        // aton() returns a BE integer, so to_be_bytes() restores that order.
-        val[0..4].copy_from_slice(&rule.requested_ip.to_be_bytes());
-        val[4..8].copy_from_slice(&rule.actual_ip.to_be_bytes());
+        // The Rule fields hold network-octet values (.to_be() in main.rs);
+        // serialize them as bytes so the C code can compare/assign them.
+        val[0..4].copy_from_slice(&rule.requested_ip.to_le_bytes());
+        val[4..8].copy_from_slice(&rule.actual_ip.to_le_bytes());
         val[8..10].copy_from_slice(&rule.requested_port.to_le_bytes());
         val[10..12].copy_from_slice(&rule.actual_port.to_le_bytes());
         bpf::bpf_map_update(cfg_fd, &idx.to_le_bytes(), &val)
             .map_err(|e| format!("cfg update key {}: {}", idx, bpf::err_str(e)))?;
         if verbose {
-            println!(
-                "  cfg[{}]: {}.{}.{}.{}:{} <-> {}.{}.{}.{}:{}",
-                idx,
-                (rule.requested_ip >> 24) & 0xff,
-                (rule.requested_ip >> 16) & 0xff,
-                (rule.requested_ip >> 8) & 0xff,
-                rule.requested_ip & 0xff,
-                rule.requested_port,
-                (rule.actual_ip >> 24) & 0xff,
-                (rule.actual_ip >> 16) & 0xff,
-                (rule.actual_ip >> 8) & 0xff,
-                rule.actual_ip & 0xff,
-                rule.actual_port,
-            );
+            println!("  cfg[{}]: {}", idx, rule);
         }
     }
 

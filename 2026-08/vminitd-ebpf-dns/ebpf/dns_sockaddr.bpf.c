@@ -24,7 +24,6 @@
 
 #include <vmlinux.h>
 #include <bpf/bpf_helpers.h>
-#include <bpf/bpf_endian.h>
 #include "dns_cfg.h"
 
 #define AF_INET 2
@@ -38,14 +37,13 @@ static __u64 redirect_query(struct bpf_sock_addr *ctx)
     if (ctx->family != AF_INET)
         return 0;
 
-    __u16 port = bpf_ntohs((__u16)ctx->user_port); /* __be16 in low 16 bits */
-    r = match_rule(ctx->user_ip4, port, DNS_QUERY);
+    r = match_rule(ctx->user_ip4, ctx->user_port, DNS_QUERY);
     if (!r)
         return 0;
 
     // ---- rewrite destination to the actual upstream ----
     ctx->user_ip4 = r->actual_ip;
-    ctx->user_port = bpf_htons(r->actual_port);
+    ctx->user_port = r->actual_port;
     return 1;
 }
 
@@ -71,21 +69,20 @@ int redirect_dns_query_sendmsg(struct bpf_sock_addr *ctx)
 // passes. Never touches the wire, so no martian drop and no
 // accept_local/route_localnet/rp_filter sysctls.
 SEC("cgroup/recvmsg4")
-int rewrite_answer_recvmsg(struct bpf_sock_addr *ctx)
+int rewrite_dns_answer_recvmsg(struct bpf_sock_addr *ctx)
 {
     struct dns_rule *r;
 
     if (ctx->family != AF_INET)
         return SK_PASS;
 
-    __u16 port = bpf_ntohs((__u16)ctx->user_port); /* __be16 in low 16 bits */
-    r = match_rule(ctx->user_ip4, port, DNS_ANSWER);
+    r = match_rule(ctx->user_ip4, ctx->user_port, DNS_ANSWER);
     if (!r)
         return SK_PASS;
 
     // ---- report the source as the requested nameserver ----
     ctx->user_ip4 = r->requested_ip;
-    ctx->user_port = bpf_htons(r->requested_port);
+    ctx->user_port = r->requested_port;
 
     count_hit(DNS_HIT_RECVMSG4);
     return SK_PASS;

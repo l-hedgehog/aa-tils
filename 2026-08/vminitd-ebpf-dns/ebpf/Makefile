@@ -4,8 +4,8 @@
 #
 # On the GitHub ubuntu-24.04-arm runner (and any Linux with the same deps):
 #   sudo apt-get install -y clang libbpf-dev linux-libc-dev
-#   make
-# The SYSTEM libbpf-dev package provides bpf/bpf_helpers.h & bpf_endian.h
+#   make            # or: make BTF=1
+# The SYSTEM libbpf-dev package provides bpf/bpf_helpers.h
 # (clang finds /usr/include/bpf by default); kernel ABI types come from the
 # vmlinux.h submodule (pinned, per-arch). Nothing is vendored in this repo.
 #
@@ -16,11 +16,12 @@
 # inline comments after :=; split lines are portable to 3.81 and 4.4.
 
 CLANG ?= clang
+STRIP ?= llvm-strip
 
 # aarch64 on the Linux runner, arm64 on macOS.
 MACHINE := $(shell uname -m)
 
-# bpf_helpers.h / bpf_endian.h; empty means use the compiler's
+# bpf_helpers.h; empty means use the compiler's
 # system include dirs (clang finds /usr/include/bpf).
 BPF_SYSINC ?=
 
@@ -39,7 +40,7 @@ dns_sockaddr.bpf.o: dns_sockaddr.bpf.c dns_cfg.h $(LEGACY_MAP) $(VMLINUX_H)
 	$(CLANG) $(BPF_CFLAGS) -c $< -o $@
 	@printf '     built %-36s %6d bytes\n' "$@" "$$(stat -c%s "$@" 2>/dev/null || stat -f%z "$@")"
 ifdef BTF
-	llvm-strip -g $@
+	$(STRIP) -g $@
 	@printf '  stripped %-36s %6d bytes\n' "$@" "$$(stat -c%s "$@" 2>/dev/null || stat -f%z "$@")"
 endif
 

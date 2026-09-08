@@ -14,30 +14,15 @@ mod elf;
 mod init;
 mod loader;
 
+use std::net::{AddrParseError, Ipv4Addr};
 use std::os::unix::io::AsRawFd;
 
 /// The embedded BPF object (dns_sockaddr.bpf.o, built by `make`).
 const EMBEDDED_OBJ: &[u8] = include_bytes!("../dns_sockaddr.bpf.o");
+const NAMESERVER_PORT: u16 = 53;
 
-/// "a.b.c.d" -> u32 (BE numeric value).
-fn aton(s: &str) -> Result<u32, String> {
-    let mut parts = s.split('.');
-    let mut v: u32 = 0;
-    for _ in 0..4 {
-        let p = parts
-            .next()
-            .ok_or_else(|| format!("bad IPv4 '{}'", s))?
-            .parse::<u32>()
-            .map_err(|_| format!("bad IPv4 '{}'", s))?;
-        if p > 255 {
-            return Err(format!("bad IPv4 '{}'", s));
-        }
-        v = (v << 8) | p;
-    }
-    if parts.next().is_some() {
-        return Err(format!("bad IPv4 '{}'", s));
-    }
-    Ok(v)
+fn aton(s: &str) -> Result<u32, AddrParseError> {
+    s.parse::<Ipv4Addr>().map(|addr| addr.to_bits())
 }
 
 /// Mount procfs at /proc (idempotent; real vminitd does this itself later,
@@ -59,7 +44,7 @@ fn gateway_from_cmdline() -> Option<String> {
 
 /// Parse /proc/cmdline for `dnslink.port=<n>`; returns the port if present.
 fn port_from_cmdline() -> Option<u16> {
-    cmdline_value("dnslink.port").and_then(|s| Some(s.parse::<u16>().unwrap_or_default()))
+    cmdline_value("dnslink.port").map(|s| s.parse::<u16>().unwrap_or(NAMESERVER_PORT))
 }
 
 /// Scan /proc/cmdline for `key=<value>` (space-separated kernel tokens).
@@ -101,10 +86,10 @@ fn main() {
     let mut real_init = "/sbin/vminitd.real".to_string();
     let mut obj_path: Option<String> = None;
     let mut watch = false;
-    let mut bind_ip = "127.0.8.6".to_string();
-    let mut bind_port: u16 = 53;
-    let mut target_ip = "1.1.1.1".to_string();
-    let mut target_port: u16 = 53;
+    let mut bind_ip_str = "127.0.8.6".to_string();
+    let mut bind_port: u16 = NAMESERVER_PORT;
+    let mut target_ip_str = "1.1.1.1".to_string();
+    let mut target_port: u16 = NAMESERVER_PORT;
 
     let mut i = 2;
     while i < args.len() {
@@ -134,7 +119,7 @@ fn main() {
             "--bind-ip" => {
                 require(i + 1 < args.len(), || usage());
                 i += 1;
-                bind_ip = args[i].clone();
+                bind_ip_str = args[i].clone();
             }
             "--bind-port" => {
                 require(i + 1 < args.len(), || usage());
@@ -144,7 +129,7 @@ fn main() {
             "--target-ip" => {
                 require(i + 1 < args.len(), || usage());
                 i += 1;
-                target_ip = args[i].clone();
+                target_ip_str = args[i].clone();
             }
             "--target-port" => {
                 require(i + 1 < args.len(), || usage());
@@ -164,12 +149,11 @@ fn main() {
     // PID1, so mount proc now so /proc/cmdline is readable.
     if mode == "init" {
         mount_procfs();
-        let default_port: u16 = 53;
         match gateway_from_cmdline() {
             Some(gw) => {
-                let port = port_from_cmdline().unwrap_or_else(|| default_port);
+                let port = port_from_cmdline().unwrap_or(NAMESERVER_PORT);
                 eprintln!("dnslink: upstream from /proc/cmdline: {}:{}", gw, port);
-                target_ip = gw;
+                target_ip_str = gw;
                 target_port = port;
             }
             None => eprintln!("dnslink: no dnslink.gateway; upstream 1.1.1.1:53"),
@@ -188,15 +172,21 @@ fn main() {
         None => EMBEDDED_OBJ.to_vec(),
     };
 
-    let r_ip = aton(&bind_ip).unwrap_or_else(|e| { eprintln!("{}", e); std::process::exit(1); });
-    let a_ip = aton(&target_ip).unwrap_or_else(|e| { eprintln!("{}", e); std::process::exit(1); });
+    let bind_ip = aton(&bind_ip_str).unwrap_or_else(|e| {
+        eprintln!("bad IPv4 '{}': {}", bind_ip_str, e);
+        std::process::exit(1);
+    });
+    let target_ip = aton(&target_ip_str).unwrap_or_else(|e| {
+        eprintln!("bad IPv4 '{}': {}", target_ip_str, e);
+        std::process::exit(1);
+    });
     let rules: Vec<(u32, loader::Rule)> = vec![(
         0,
         loader::Rule {
-            requested_ip: r_ip,
-            actual_ip: a_ip,
-            requested_port: bind_port,
-            actual_port: target_port,
+            requested_ip: bind_ip.to_be(),
+            actual_ip: target_ip.to_be(),
+            requested_port: bind_port.to_be(),
+            actual_port: target_port.to_be(),
         },
     )];
 
