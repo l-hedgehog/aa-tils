@@ -70,8 +70,10 @@ init-image/                 Apple-doc pattern ("Use a custom init image") with
   pattern: `FROM vminit:<scVersion>`, keep the real init as
   `/sbin/vminitd.real`, `COPY` the dnslink binary as `/sbin/vminitd`. The base
   `vminit` tag auto-follows apple/container's `scVersion` (current `0.41.0`).
-- **CI**: `ubuntu-24.04-arm` (native arm64, no Docker-in-Docker, no buildx),
-  deps installed in the runner, image assembly is the only `docker build`.
+- **CI**: `ubuntu-24.04-arm` (native arm64), deps installed in the runner;
+  image build+push via `docker/build-push-action` on the runner's bundled
+  buildx + Docker daemon, tags+labels via `docker/metadata-action`, login via
+  `docker/login-action` with the `GITHUB_TOKEN`.
 
 ## Build locally
 

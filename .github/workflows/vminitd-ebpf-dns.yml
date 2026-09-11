@@ -36,6 +36,16 @@ env:
 jobs:
   build:
     runs-on: ubuntu-24.04-arm
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: btf
+            make_var: "BTF=1"
+            tag_suffix: ""
+          - name: legacy
+            make_var: ""
+            tag_suffix: "-legacy"
     defaults:
       run:
         working-directory: 2026-08/vminitd-ebpf-dns
@@ -46,7 +56,7 @@ jobs:
           submodules: recursive
           fetch-depth: 1
 
-      - name: Resolve upstream vminit version and output tag
+      - name: Resolve upstream vminit version
         run: |
           if [ -n "${{ inputs.vminit-version }}" ]; then
             VMINIT_VERSION="${{ inputs.vminit-version }}"
@@ -59,12 +69,8 @@ jobs:
               *) echo "couldn't parse scVersion, using 0.41.0"; VMINIT_VERSION="0.41.0" ;;
             esac
           fi
-
-          TAG="${{ inputs.tag }}"
-          [ -n "$TAG" ] || TAG="${GITHUB_SHA::7}"
           echo "VMINIT_VERSION=$VMINIT_VERSION" >> "$GITHUB_ENV"
-          echo "TAG=$TAG" >> "$GITHUB_ENV"
-          echo "base vminit:$VMINIT_VERSION -> output $IMAGE:$TAG"
+          echo "base vminit:$VMINIT_VERSION"
 
       - name: Install toolchain deps (clang, libbpf headers, musl linker)
         run: |
@@ -84,9 +90,9 @@ jobs:
           workspaces: 2026-08/vminitd-ebpf-dns/dnslink
 
       - name: Build eBPF object (system libbpf + vmlinux.h submodule)
-        run: make -C ebpf
+        run: make -C ebpf ${{ matrix.make_var }}
 
-      - name: Embed object into dnslink
+      - name: Stage eBPF object into dnslink
         run: cp ebpf/dns_sockaddr.bpf.o dnslink/
 
       - name: Build static dnslink (aarch64-musl)
@@ -95,21 +101,39 @@ jobs:
           cargo build --release --target aarch64-unknown-linux-musl
           file target/aarch64-unknown-linux-musl/release/dnslink
 
-      - name: Assemble custom init image (Apple Dockerfile pattern)
+      - name: Stage dnslink binary into init-image
         run: |
           cp dnslink/target/aarch64-unknown-linux-musl/release/dnslink init-image/dnslink
           chmod +x init-image/dnslink
-          docker build \
-            --build-arg VMINIT_VERSION="$VMINIT_VERSION" \
-            -t "$IMAGE:$TAG" \
-            init-image
 
-      - name: Push to GHCR (public package)
-        run: |
-          echo "${{ secrets.GITHUB_TOKEN }}" \
-            | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
-          docker push "$IMAGE:$TAG"
-          docker logout ghcr.io
+      # Tag = input.tag override, else short commit SHA; legacy row appends
+      # -legacy. metadata-action handles both + OCI labels.
+      - name: Extract Docker tags and labels
+        id: meta
+        uses: docker/metadata-action@v6
+        with:
+          images: ${{ env.IMAGE }}
+          tags: |
+            type=sha,prefix=,suffix=${{ matrix.tag_suffix }},enable=${{ inputs.tag == '' }}
+            type=raw,value=${{ inputs.tag }},suffix=${{ matrix.tag_suffix }},enable=${{ inputs.tag != '' }}
+
+      - name: Log in to GHCR (public package)
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Path context resolved from the repo root (action steps ignore the
+      # job-level working-directory). Uses buildx preinstalled on the runner.
+      - name: Build and push init image
+        uses: docker/build-push-action@v7
+        with:
+          context: 2026-08/vminitd-ebpf-dns/init-image
+          build-args: VMINIT_VERSION=${{ env.VMINIT_VERSION }}
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
 
       - name: Show pushed reference
-        run: echo "pushed $IMAGE:$TAG"
+        run: echo "pushed ${{ env.IMAGE }}:${{ steps.meta.outputs.version }}"
