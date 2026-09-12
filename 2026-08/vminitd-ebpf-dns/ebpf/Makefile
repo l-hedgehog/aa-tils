@@ -3,7 +3,7 @@
 # sharing one cfg_map + keyed hit_cnt).
 #
 # On the GitHub ubuntu-24.04-arm runner (and any Linux with the same deps):
-#   sudo apt-get install -y clang libbpf-dev linux-libc-dev
+#   sudo apt-get install -y clang libbpf-dev linux-libc-dev llvm
 #   make            # or: make BTF=1
 # The SYSTEM libbpf-dev package provides bpf/bpf_helpers.h
 # (clang finds /usr/include/bpf by default); kernel ABI types come from the

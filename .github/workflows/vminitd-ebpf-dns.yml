@@ -76,7 +76,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
-            clang libbpf-dev linux-libc-dev musl-tools
+            clang libbpf-dev linux-libc-dev llvm musl-tools
           clang --version | head -1
 
       - name: Install rustc (aarch64-musl target)
