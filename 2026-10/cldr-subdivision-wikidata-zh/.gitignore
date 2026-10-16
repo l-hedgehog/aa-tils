@@ -1,0 +1,4 @@
+# Generated data/report and installed dependencies.
+node_modules/
+wikiSubdivisionLanguages.csv
+wikiSubdivisionLanguages.html

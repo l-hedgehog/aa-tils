@@ -1,0 +1,15 @@
+{
+  "name": "cldr-subdivision-wikidata-zh",
+  "private": true,
+  "version": "1.0.0",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "query": "node query_wikidata.js",
+    "render": "node render_html.js"
+  },
+  "dependencies": {
+    "cldr-subdivisions-full": "48.2.0"
+  }
+}
