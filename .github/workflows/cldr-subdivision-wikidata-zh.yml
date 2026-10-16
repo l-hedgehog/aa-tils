@@ -1,0 +1,92 @@
+name: cldr-subdivision-wikidata-zh
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '2026-10/cldr-subdivision-wikidata-zh/**'
+      - '.github/workflows/cldr-subdivision-wikidata-zh.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: cldr-subdivision-wikidata-zh-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build-and-publish:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: 2026-10/cldr-subdivision-wikidata-zh/package-lock.json
+
+      - name: Install dependencies
+        working-directory: 2026-10/cldr-subdivision-wikidata-zh
+        run: npm ci
+
+      - name: Restore Wikidata CSV cache
+        id: csv-cache
+        uses: actions/cache/restore@v5
+        with:
+          path: 2026-10/cldr-subdivision-wikidata-zh/wikiSubdivisionLanguages.csv
+          key: wikidata-csv-v1-${{ hashFiles('2026-10/cldr-subdivision-wikidata-zh/query_wikidata.js') }}
+
+      - name: Query Wikidata when CSV is missing
+        working-directory: 2026-10/cldr-subdivision-wikidata-zh
+        run: |
+          if [ -s wikiSubdivisionLanguages.csv ]; then
+            echo 'CSV already exists; skipping Wikidata query.'
+          else
+            npm run query
+          fi
+
+      - name: Save Wikidata CSV cache
+        if: steps.csv-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v5
+        with:
+          path: 2026-10/cldr-subdivision-wikidata-zh/wikiSubdivisionLanguages.csv
+          key: wikidata-csv-v1-${{ hashFiles('2026-10/cldr-subdivision-wikidata-zh/query_wikidata.js') }}
+
+      - name: Generate HTML
+        working-directory: 2026-10/cldr-subdivision-wikidata-zh
+        run: npm run render
+
+      - name: Publish HTML to gh-pages
+        env:
+          PUBLISH_DIR: ${{ runner.temp }}/gh-pages
+          REPORT_DIR: 2026-10/cldr-subdivision-wikidata-zh
+        run: |
+          set -euo pipefail
+          rm -rf "$PUBLISH_DIR"
+          git fetch origin gh-pages || true
+          if git show-ref --verify --quiet refs/remotes/origin/gh-pages; then
+            git worktree add --detach "$PUBLISH_DIR" origin/gh-pages
+          else
+            git worktree add --orphan -b gh-pages "$PUBLISH_DIR"
+          fi
+
+          target="$PUBLISH_DIR/$REPORT_DIR"
+          mkdir -p "$target"
+          cp "$GITHUB_WORKSPACE/$REPORT_DIR/wikiSubdivisionLanguages.html" "$target/index.html"
+          git -C "$PUBLISH_DIR" config user.name 'github-actions[bot]'
+          git -C "$PUBLISH_DIR" config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git -C "$PUBLISH_DIR" add -f "$REPORT_DIR/index.html"
+          if git -C "$PUBLISH_DIR" diff --cached --quiet; then
+            echo 'Published HTML is unchanged.'
+          else
+            git -C "$PUBLISH_DIR" commit -m 'Update CLDR subdivision Wikidata report'
+            git -C "$PUBLISH_DIR" push origin HEAD:gh-pages
+          fi
+          echo "Published https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/$REPORT_DIR/" >> "$GITHUB_STEP_SUMMARY"
