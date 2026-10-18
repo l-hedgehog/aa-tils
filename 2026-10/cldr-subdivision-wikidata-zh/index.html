@@ -3,18 +3,19 @@
 <head>
 <meta charset="utf-8">
 <title>Wikidata and CLDR subdivision names</title>
-<style>th:nth-child(n+3), td:nth-child(n+3) { text-align: center; } td.merged { background-color: #fff2cc; border: 1px solid #d6b656; } td.near-match { background-color: #fff8e6; border: 1px solid #e7ddb8; } span.near-match-char { background-color: #e8b4b4; white-space: pre-wrap; }</style>
+<style>th:nth-child(n+3), td:nth-child(n+3) { text-align: center; } tr.country-heading th { text-align: center; background-color: #f2f2f2; border-top: 2px solid #888; } td.merged { background-color: #fff2cc; border: 1px solid #d6b656; } td.near-match { background-color: #fff8e6; border: 1px solid #e7ddb8; } span.near-match-char { background-color: #e8b4b4; white-space: pre-wrap; } small.mca-label { display: block; font-size: 0.8em; margin-top: 0.15em; background-color: #e8b4b4; }</style>
 </head>
 <body>
 <table>
-<caption>Wikidata subdivision labels; <a href="https://github.com/unicode-org/cldr/blob/main/tools/cldr-rdf/src/main/resources/org/unicode/cldr/rdf/sparql/wikidata-wikisubdivisionLanguages.sparql">upstream CLDR query</a></caption>
+<caption>Wikidata subdivision labels; <a href="https://github.com/unicode-org/cldr/blob/main/tools/cldr-rdf/src/main/resources/org/unicode/cldr/rdf/sparql/wikidata-wikisubdivisionLanguages.sparql">upstream CLDR query</a>. Selected territories with standardized translations from the <a href="https://dmfw.mca.gov.cn/foreign.html">National Database for Geographical Names of China</a></caption>
 <thead><tr><th>item</th><th>code</th><th>name_en_cldr</th><th>name_en_wikidata</th><th>name_zh-cn</th><th>name_zh</th><th>name_zh-tw</th></tr></thead>
 <tbody>
+<tr class="country-heading"><th colspan="2">AU</th><th colspan="2">Australia</th><th colspan="3">澳大利亚</th></tr>
 <tr>
 <td><a href="http://www.wikidata.org/entity/Q3258">Q3258</a></td>
 <td>AU-ACT</td>
 <td class="merged" colspan="2">Australian Capital Territory</td>
-<td>N/A</td>
+<td>N/A<br><small class="mca-label">澳大利亚首都直辖区</small></td>
 <td>澳大利亞首都特區</td>
 <td>N/A</td>
 </tr>
@@ -30,7 +31,7 @@
 <td><a href="http://www.wikidata.org/entity/Q3235">Q3235</a></td>
 <td>AU-NT</td>
 <td class="merged" colspan="2">Northern Territory</td>
-<td>N/A</td>
+<td>N/A<br><small class="mca-label">N/A</small></td>
 <td>北領地</td>
 <td>N/A</td>
 </tr>
@@ -72,6 +73,7 @@
 <td class="merged" colspan="2">西澳大利亚州</td>
 <td>西澳州</td>
 </tr>
+<tr class="country-heading"><th colspan="2">DE</th><th colspan="2">Germany</th><th colspan="3">德国</th></tr>
 <tr>
 <td><a href="http://www.wikidata.org/entity/Q1208">Q1208</a></td>
 <td>DE-BB</td>
@@ -187,6 +189,7 @@
 <td>圖林根州</td>
 <td>圖林根邦</td>
 </tr>
+<tr class="country-heading"><th colspan="2">ES</th><th colspan="2">Spain</th><th colspan="3">西班牙</th></tr>
 <tr>
 <td><a href="http://www.wikidata.org/entity/Q54936">Q54936</a></td>
 <td>ES-A</td>
@@ -775,6 +778,7 @@
 <td>萨莫拉省</td>
 <td>薩莫拉省</td>
 </tr>
+<tr class="country-heading"><th colspan="2">FR</th><th colspan="2">France</th><th colspan="3">法国</th></tr>
 <tr>
 <td><a href="http://www.wikidata.org/entity/Q3083">Q3083</a></td>
 <td>FR-01</td>
@@ -1690,6 +1694,7 @@
 <td>卢瓦尔河地区大区</td>
 <td>N/A</td>
 </tr>
+<tr class="country-heading"><th colspan="2">GB</th><th colspan="2">United Kingdom</th><th colspan="3">英国</th></tr>
 <tr>
 <td><a href="http://www.wikidata.org/entity/Q4792580">Q4792580</a></td>
 <td>GB-ABC</td>
@@ -3846,6 +3851,7 @@
 <td>设德兰群岛</td>
 <td>N/A</td>
 </tr>
+<tr class="country-heading"><th colspan="2">GR</th><th colspan="2">Greece</th><th colspan="3">希腊</th></tr>
 <tr>
 <td><a href="http://www.wikidata.org/entity/Q202624">Q202624</a></td>
 <td>GR-01</td>
@@ -4399,6 +4405,7 @@
 <td class="merged" colspan="2">克里特大区</td>
 <td>N/A</td>
 </tr>
+<tr class="country-heading"><th colspan="2">IT</th><th colspan="2">Italy</th><th colspan="3">意大利</th></tr>
 <tr>
 <td><a href="http://www.wikidata.org/entity/Q1216">Q1216</a></td>
 <td>IT-21</td>
@@ -4446,7 +4453,7 @@
 <td><a href="http://www.wikidata.org/entity/Q1256">Q1256</a></td>
 <td>IT-42</td>
 <td class="merged" colspan="2">Liguria</td>
-<td>利古里亚大区</td>
+<td>利古里亚大区<br><small class="mca-label">利吉里亚区</small></td>
 <td>利古里亞</td>
 <td>利古里亞大區</td>
 </tr>
@@ -4523,7 +4530,7 @@
 <td><a href="http://www.wikidata.org/entity/Q1452">Q1452</a></td>
 <td>IT-77</td>
 <td class="merged" colspan="2">Basilicata</td>
-<td>N/A</td>
+<td>N/A<br><small class="mca-label">巴西利卡塔区</small></td>
 <td>巴斯利卡塔</td>
 <td>N/A</td>
 </tr>
@@ -4554,7 +4561,7 @@
 <td>IT-AG</td>
 <td class="near-match" title="Shorter prefix/suffix match">Agrigento</td>
 <td>Free municipal consortium of Agrigento</td>
-<td>N/A</td>
+<td>N/A<br><small class="mca-label">阿格里真托</small></td>
 <td>N/A</td>
 <td>N/A</td>
 </tr>
@@ -4581,7 +4588,7 @@
 <td>IT-AO</td>
 <td class="near-match" title="Shorter prefix/suffix match">Aosta</td>
 <td>province of Aosta</td>
-<td>N/A</td>
+<td>N/A<br><small class="mca-label">N/A</small></td>
 <td>N/A</td>
 <td>N/A</td>
 </tr>
@@ -4599,7 +4606,7 @@
 <td>IT-AQ</td>
 <td>L’Aquila</td>
 <td>Province of L&#39;Aquila</td>
-<td>N/A</td>
+<td>N/A<br><small class="mca-label">N/A</small></td>
 <td>阿奎拉省</td>
 <td>N/A</td>
 </tr>
@@ -4706,7 +4713,7 @@
 <td>IT-BT</td>
 <td class="near-match" title="Shorter prefix/suffix match">Barletta-Andria-Trani</td>
 <td>Province of Barletta-Andria-Trani</td>
-<td>N/A</td>
+<td>N/A<br><small class="mca-label">N/A</small></td>
 <td>巴爾萊塔-安德里亞-特蘭尼省</td>
 <td>N/A</td>
 </tr>
@@ -4714,7 +4721,7 @@
 <td><a href="http://www.wikidata.org/entity/Q15124">Q15124</a></td>
 <td>IT-BZ</td>
 <td class="merged" colspan="2">South Tyrol</td>
-<td>N/A</td>
+<td>N/A<br><small class="mca-label">N/A</small></td>
 <td>波爾扎諾自治省</td>
 <td>N/A</td>
 </tr>
@@ -4759,7 +4766,7 @@
 <td>IT-CI</td>
 <td class="near-match" title="Shorter prefix/suffix match">Carbonia-Iglesias</td>
 <td>Province of Carbonia-Iglesias</td>
-<td>N/A</td>
+<td>N/A<br><small class="mca-label">N/A</small></td>
 <td>卡博尼亞-伊格萊西亞斯省</td>
 <td>N/A</td>
 </tr>
@@ -4768,7 +4775,7 @@
 <td>IT-CL</td>
 <td class="near-match" title="Shorter prefix/suffix match">Caltanissetta</td>
 <td>Free Municipal Consortium of Caltanissetta</td>
-<td>N/A</td>
+<td>N/A<br><small class="mca-label">卡尔塔尼塞塔省</small></td>
 <td>N/A</td>
 <td>N/A</td>
 </tr>
@@ -4822,7 +4829,7 @@
 <td>IT-CZ</td>
 <td class="near-match" title="Shorter prefix/suffix match">Catanzaro</td>
 <td>Province of Catanzaro</td>
-<td>N/A</td>
+<td>N/A<br><small class="mca-label">卡坦扎罗</small></td>
 <td>卡坦札羅省</td>
 <td>N/A</td>
 </tr>
@@ -4831,7 +4838,7 @@
 <td>IT-EN</td>
 <td class="near-match" title="Shorter prefix/suffix match">Enna</td>
 <td>Free Municipal Consortium of Enna</td>
-<td>N/A</td>
+<td>N/A<br><small class="mca-label">N/A</small></td>
 <td>N/A</td>
 <td>N/A</td>
 </tr>
@@ -4840,7 +4847,7 @@
 <td>IT-FC</td>
 <td class="near-match" title="Shorter prefix/suffix match">Forlì-Cesena</td>
 <td>Province of Forlì-Cesena</td>
-<td>N/A</td>
+<td>N/A<br><small class="mca-label">N/A</small></td>
 <td>弗利-切塞納省</td>
 <td>N/A</td>
 </tr>
@@ -4867,7 +4874,7 @@
 <td>IT-FI</td>
 <td class="near-match" title="Shorter prefix/suffix match">Florence</td>
 <td>Metropolitan City of Florence</td>
-<td>N/A</td>
+<td>N/A<br><small class="mca-label">佛罗伦萨</small></td>
 <td>佛羅倫斯廣域市</td>
 <td>N/A</td>
 </tr>
@@ -5002,7 +5009,7 @@
 <td>IT-MB</td>
 <td class="near-match" title="Shorter prefix/suffix match">Monza and Brianza</td>
 <td>Province of Monza and Brianza</td>
-<td>N/A</td>
+<td>N/A<br><small class="mca-label">N/A</small></td>
 <td class="merged" colspan="2">蒙扎和布里安扎省</td>
 </tr>
 <tr>
@@ -5100,7 +5107,7 @@
 <td>IT-OG</td>
 <td class="near-match" title="Shorter prefix/suffix match">Ogliastra</td>
 <td>Province of Ogliastra</td>
-<td>N/A</td>
+<td>N/A<br><small class="mca-label">N/A</small></td>
 <td>奧里亞斯特拉省</td>
 <td>N/A</td>
 </tr>
@@ -5118,7 +5125,7 @@
 <td>IT-OT</td>
 <td class="near-match" title="Shorter prefix/suffix match">Olbia-Tempio</td>
 <td>Province of Olbia-Tempio</td>
-<td class="merged" colspan="2">奥尔比亚-滕皮奥省</td>
+<td class="merged" colspan="2">奥尔比亚-滕皮奥省<br><small class="mca-label">N/A</small></td>
 <td>N/A</td>
 </tr>
 <tr>
@@ -5188,7 +5195,7 @@
 <td>IT-PO</td>
 <td class="near-match" title="Shorter prefix/suffix match">Prato</td>
 <td>Province of Prato</td>
-<td class="merged" colspan="2">普拉托省</td>
+<td class="merged" colspan="2">普拉托省<br><small class="mca-label">N/A</small></td>
 <td>N/A</td>
 </tr>
 <tr>
@@ -5214,7 +5221,7 @@
 <td>IT-PU</td>
 <td class="near-match" title="Shorter prefix/suffix match">Pesaro and Urbino</td>
 <td>Province of Pesaro and Urbino</td>
-<td>N/A</td>
+<td>N/A<br><small class="mca-label">N/A</small></td>
 <td>佩薩羅-烏爾比諾省</td>
 <td>N/A</td>
 </tr>
@@ -5268,7 +5275,7 @@
 <td>IT-RG</td>
 <td class="near-match" title="Shorter prefix/suffix match">Ragusa</td>
 <td>Free Municipal Consortium of Ragusa</td>
-<td>N/A</td>
+<td>N/A<br><small class="mca-label">拉古萨</small></td>
 <td>N/A</td>
 <td>N/A</td>
 </tr>
@@ -5331,7 +5338,7 @@
 <td>IT-SO</td>
 <td class="near-match" title="Shorter prefix/suffix match">Sondrio</td>
 <td>Province of Sondrio</td>
-<td>N/A</td>
+<td>N/A<br><small class="mca-label">N/A</small></td>
 <td>松德里奧省</td>
 <td>N/A</td>
 </tr>
@@ -5349,7 +5356,7 @@
 <td>IT-SR</td>
 <td class="near-match" title="Shorter prefix/suffix match">Syracuse</td>
 <td>Free Municipal Consortium of Syracuse</td>
-<td>N/A</td>
+<td>N/A<br><small class="mca-label">锡拉库萨</small></td>
 <td>N/A</td>
 <td>N/A</td>
 </tr>
@@ -5367,7 +5374,7 @@
 <td>IT-SU</td>
 <td>Sud Sardegna</td>
 <td>Province of South Sardinia</td>
-<td>N/A</td>
+<td>N/A<br><small class="mca-label">N/A</small></td>
 <td>南撒丁省</td>
 <td>N/A</td>
 </tr>
@@ -5402,7 +5409,7 @@
 <td><a href="http://www.wikidata.org/entity/Q16289">Q16289</a></td>
 <td>IT-TN</td>
 <td class="merged" colspan="2">Trentino</td>
-<td>特伦托</td>
+<td>特伦托<br><small class="mca-label">N/A</small></td>
 <td class="merged" colspan="2">特倫托</td>
 </tr>
 <tr>
@@ -5419,7 +5426,7 @@
 <td>IT-TP</td>
 <td class="near-match" title="Shorter prefix/suffix match">Trapani</td>
 <td>Free Municipal Consortium of Trapani</td>
-<td>N/A</td>
+<td>N/A<br><small class="mca-label">特拉帕尼</small></td>
 <td>N/A</td>
 <td>N/A</td>
 </tr>
@@ -5471,7 +5478,7 @@
 <td>IT-VB</td>
 <td class="near-match" title="Shorter prefix/suffix match">Verbano-Cusio-Ossola</td>
 <td>Province of Verbano-Cusio-Ossola</td>
-<td>N/A</td>
+<td>N/A<br><small class="mca-label">N/A</small></td>
 <td>韋爾巴諾-庫西亞-奧索拉省</td>
 <td>N/A</td>
 </tr>
@@ -5522,7 +5529,7 @@
 <td>IT-VS</td>
 <td class="near-match" title="Shorter prefix/suffix match">Medio Campidano</td>
 <td>Province of Medio Campidano</td>
-<td>N/A</td>
+<td>N/A<br><small class="mca-label">N/A</small></td>
 <td>中坎皮达诺省</td>
 <td>N/A</td>
 </tr>
@@ -5543,6 +5550,7 @@
 <td>維博瓦倫蒂亞省</td>
 <td>N/A</td>
 </tr>
+<tr class="country-heading"><th colspan="2">JP</th><th colspan="2">Japan</th><th colspan="3">日本</th></tr>
 <tr>
 <td><a href="http://www.wikidata.org/entity/Q1037393">Q1037393</a></td>
 <td>JP-01</td>
@@ -5611,7 +5619,7 @@
 <td>JP-09</td>
 <td class="near-match" title="Shorter prefix/suffix match">Tochigi</td>
 <td>Tochigi Prefecture</td>
-<td>N/A</td>
+<td>N/A<br><small class="mca-label">枥木县</small></td>
 <td>栃木縣</td>
 <td>N/A</td>
 </tr>
@@ -5628,7 +5636,7 @@
 <td>JP-11</td>
 <td class="near-match" title="Shorter prefix/suffix match">Saitama</td>
 <td>Saitama Prefecture</td>
-<td>埼玉县</td>
+<td>埼玉县<br><small class="mca-label">N/A</small></td>
 <td class="merged" colspan="2">埼玉縣</td>
 </tr>
 <tr>
@@ -5675,7 +5683,7 @@
 <td>JP-17</td>
 <td class="near-match" title="Shorter prefix/suffix match">Ishikawa</td>
 <td>Ishikawa Prefecture</td>
-<td>石川县</td>
+<td>石川县<br><small class="mca-label">N/A</small></td>
 <td class="merged" colspan="2">石川縣</td>
 </tr>
 <tr>
@@ -5916,6 +5924,7 @@
 <td>冲绳县</td>
 <td class="merged" colspan="2">沖繩縣</td>
 </tr>
+<tr class="country-heading"><th colspan="2">KR</th><th colspan="2">South Korea</th><th colspan="3">韩国</th></tr>
 <tr>
 <td><a href="http://www.wikidata.org/entity/Q8684">Q8684</a></td>
 <td>KR-11</td>
@@ -6032,6 +6041,7 @@
 <td class="merged" colspan="2">Sejong</td>
 <td class="merged" colspan="3">世宗特別自治市</td>
 </tr>
+<tr class="country-heading"><th colspan="2">MX</th><th colspan="2">Mexico</th><th colspan="3">墨西哥</th></tr>
 <tr>
 <td><a href="http://www.wikidata.org/entity/Q79952">Q79952</a></td>
 <td>MX-AGU</td>
@@ -6239,7 +6249,7 @@
 <td><a href="http://www.wikidata.org/entity/Q80914">Q80914</a></td>
 <td>MX-TAB</td>
 <td class="merged" colspan="2">Tabasco</td>
-<td>N/A</td>
+<td>N/A<br><small class="mca-label">塔瓦斯科州</small></td>
 <td>塔巴斯科州</td>
 <td>N/A</td>
 </tr>
@@ -6280,6 +6290,7 @@
 <td>薩卡特卡斯州</td>
 <td>N/A</td>
 </tr>
+<tr class="country-heading"><th colspan="2">MY</th><th colspan="2">Malaysia</th><th colspan="3">马来西亚</th></tr>
 <tr>
 <td><a href="http://www.wikidata.org/entity/Q183032">Q183032</a></td>
 <td>MY-01</td>
@@ -6325,7 +6336,7 @@
 <td><a href="http://www.wikidata.org/entity/Q188096">Q188096</a></td>
 <td>MY-07</td>
 <td class="merged" colspan="2">Penang</td>
-<td class="merged" colspan="2">槟城</td>
+<td class="merged" colspan="2">槟城<br><small class="mca-label">槟榔屿州</small></td>
 <td>檳城</td>
 </tr>
 <tr>
@@ -6354,7 +6365,7 @@
 <td><a href="http://www.wikidata.org/entity/Q189701">Q189701</a></td>
 <td>MY-11</td>
 <td class="merged" colspan="2">Terengganu</td>
-<td>登嘉楼</td>
+<td>登嘉楼<br><small class="mca-label">丁加奴洲</small></td>
 <td class="merged" colspan="2">登嘉樓</td>
 </tr>
 <tr>
@@ -6380,15 +6391,16 @@
 <td><a href="http://www.wikidata.org/entity/Q214504">Q214504</a></td>
 <td>MY-15</td>
 <td class="merged" colspan="2">Labuan</td>
-<td class="merged" colspan="2">纳闽</td>
+<td class="merged" colspan="2">纳闽<br><small class="mca-label">N/A</small></td>
 <td>納閩</td>
 </tr>
 <tr>
 <td><a href="http://www.wikidata.org/entity/Q182378">Q182378</a></td>
 <td>MY-16</td>
 <td class="merged" colspan="2">Putrajaya</td>
-<td class="merged" colspan="3">布城</td>
+<td class="merged" colspan="3">布城<br><small class="mca-label">N/A</small></td>
 </tr>
+<tr class="country-heading"><th colspan="2">TH</th><th colspan="2">Thailand</th><th colspan="3">泰国</th></tr>
 <tr>
 <td><a href="http://www.wikidata.org/entity/Q1861">Q1861</a></td>
 <td>TH-10</td>
@@ -6561,7 +6573,7 @@
 <td><a href="http://www.wikidata.org/entity/Q243791">Q243791</a></td>
 <td>TH-37</td>
 <td class="merged" colspan="2">Amnat Charoen</td>
-<td>安纳乍伦府</td>
+<td>安纳乍伦府<br><small class="mca-label">N/A</small></td>
 <td class="merged" colspan="2">安納乍倫府</td>
 </tr>
 <tr>
@@ -6577,7 +6589,7 @@
 <td>TH-39</td>
 <td class="near-match" title="English names differ slightly">Nong Bua Lam<span class="near-match-char"> </span>Phu</td>
 <td class="near-match" title="English names differ slightly">Nong Bua Lamphu</td>
-<td>农磨兰普府</td>
+<td>农磨兰普府<br><small class="mca-label">N/A</small></td>
 <td>農磨蘭普府</td>
 <td>N/A</td>
 </tr>
@@ -6903,10 +6915,11 @@
 <td><a href="http://www.wikidata.org/entity/Q170919">Q170919</a></td>
 <td>TH-S</td>
 <td class="merged" colspan="2">Pattaya</td>
-<td>芭堤雅</td>
+<td>芭堤雅<br><small class="mca-label">帕塔亚</small></td>
 <td>芭達亞</td>
 <td>芭達雅</td>
 </tr>
+<tr class="country-heading"><th colspan="2">TR</th><th colspan="2">Türkiye</th><th colspan="3">土耳其</th></tr>
 <tr>
 <td><a href="http://www.wikidata.org/entity/Q40549">Q40549</a></td>
 <td>TR-01</td>
@@ -7601,6 +7614,7 @@
 <td>迪兹杰省</td>
 <td>N/A</td>
 </tr>
+<tr class="country-heading"><th colspan="2">US</th><th colspan="2">United States</th><th colspan="3">美国</th></tr>
 <tr>
 <td><a href="http://www.wikidata.org/entity/Q797">Q797</a></td>
 <td>US-AK</td>
@@ -7653,7 +7667,7 @@
 <td>US-DC</td>
 <td>Washington DC</td>
 <td>District of Columbia</td>
-<td>N/A</td>
+<td>N/A<br><small class="mca-label">华盛顿</small></td>
 <td>哥伦比亚特区</td>
 <td>N/A</td>
 </tr>
@@ -7856,7 +7870,7 @@
 <td><a href="http://www.wikidata.org/entity/Q1649">Q1649</a></td>
 <td>US-OK</td>
 <td class="merged" colspan="2">Oklahoma</td>
-<td>俄克拉荷马州</td>
+<td>俄克拉荷马州<br><small class="mca-label">俄克拉何马州</small></td>
 <td class="merged" colspan="2">俄克拉荷馬州</td>
 </tr>
 <tr>
@@ -7947,7 +7961,7 @@
 <td><a href="http://www.wikidata.org/entity/Q1371">Q1371</a></td>
 <td>US-WV</td>
 <td class="merged" colspan="2">West Virginia</td>
-<td class="merged" colspan="3">西維吉尼亞州</td>
+<td class="merged" colspan="3">西維吉尼亞州<br><small class="mca-label">西弗吉尼亚洲</small></td>
 </tr>
 <tr>
 <td><a href="http://www.wikidata.org/entity/Q1214">Q1214</a></td>
@@ -7956,6 +7970,7 @@
 <td class="merged" colspan="2">怀俄明州</td>
 <td>懷俄明州</td>
 </tr>
+<tr class="country-heading"><th colspan="2">VN</th><th colspan="2">Vietnam</th><th colspan="3">越南</th></tr>
 <tr>
 <td><a href="http://www.wikidata.org/entity/Q36409">Q36409</a></td>
 <td>VN-01</td>
