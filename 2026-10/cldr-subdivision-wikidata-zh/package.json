@@ -10,6 +10,8 @@
     "render": "node render_html.js"
   },
   "dependencies": {
-    "cldr-subdivisions-full": "48.2.0"
+    "cldr-localenames-full": "48.2.0",
+    "cldr-subdivisions-full": "48.2.0",
+    "opencc-js": "1.4.2"
   }
 }

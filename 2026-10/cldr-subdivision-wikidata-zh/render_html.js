@@ -3,13 +3,30 @@
 
 const fs = require("node:fs/promises");
 const path = require("node:path");
+const OpenCC = require("opencc-js");
 const cldrData = require("cldr-subdivisions-full/subdivisions/en/en.json");
+const CLDR_COUNTRY_NAMES_EN = require("cldr-localenames-full/main/en/territories.json")
+  .main.en.localeDisplayNames.territories;
+const CLDR_COUNTRY_NAMES_ZH = require("cldr-localenames-full/main/zh/territories.json")
+  .main.zh.localeDisplayNames.territories;
 
 const LANGUAGES = ["en", "zh-cn", "zh", "zh-tw"];
 const HEADERS = ["item", "label", "code", "codeLabel"];
 const INPUT = path.join(__dirname, "wikiSubdivisionLanguages.csv");
 const OUTPUT = path.join(__dirname, "wikiSubdivisionLanguages.html");
+const MCA_NAMES_INPUT = path.join(__dirname, "mca_subdivisions_zh.json");
+const CHINESE_LANGUAGES = ["zh-cn", "zh", "zh-tw"];
+const IGNORED_TERMINAL_SUFFIXES = {
+  AU: ["州"],
+  IT: ["首都广域市", "广域市", "大区", "区", "省"],
+  JP: ["县"],
+  MX: ["州"],
+  MY: ["州"],
+  TH: ["府"],
+  US: ["州"],
+};
 const UPSTREAM_QUERY = "https://github.com/unicode-org/cldr/blob/main/tools/cldr-rdf/src/main/resources/org/unicode/cldr/rdf/sparql/wikidata-wikisubdivisionLanguages.sparql";
+const MCA_DATABASE_URL = "https://dmfw.mca.gov.cn/foreign.html";
 const CLDR_NAMES = cldrData.subdivisions.localeDisplayNames.subdivisions;
 const CLDR_CONTAINMENT = require("cldr-core/supplemental/subdivisionContainment.json").supplemental.subdivisionContainment;
 
@@ -71,15 +88,61 @@ function codeToCldrKey(code) {
   return code.toLowerCase().replace(/-/g, "");
 }
 
-function mergeableNames(values) {
+function normalize(value, country, convert) {
+  let text = convert(String(value ?? "").normalize("NFKC"));
+  text = text.replace(/\p{Pd}/gu, "-").replace(/洲/gu, "州");
+  text = text.replace(/[（(][^）)]*[）)]/gu, "");
+  const suffixes = [...(IGNORED_TERMINAL_SUFFIXES[country] || [])]
+    .sort((left, right) => right.length - left.length);
+  if (suffixes.length) {
+    text = text.replace(new RegExp(`(?:${suffixes.join("|")})+$`, "u"), "");
+  }
+  return text.replace(/\s+/gu, "");
+}
+
+function normalizeForms(value, country, convert) {
+  const text = String(value ?? "").normalize("NFKC");
+  const aliases = [...text.matchAll(/\(([^()]*)\)/gu)].map((match) => match[1]);
+  const main = text.replace(/\([^()]*\)/gu, "");
+  return new Set([main, ...aliases].map((candidate) => normalize(candidate, country, convert)).filter(Boolean));
+}
+
+function mcaAnnotationIndices(wikidataNames, mcaName, country, convert) {
+  if (!mcaName) return new Set();
+  const mcaForms = normalizeForms(mcaName, country, convert);
+  const hasMatch = wikidataNames.some((name) => name !== "N/A" &&
+    [...mcaForms].some((form) => normalizeForms(name, country, convert).has(form)));
+  return hasMatch ? new Set() : new Set([0]);
+}
+
+function mergeableNames(values, annotations = new Set(), mcaName = "") {
   const cells = [];
   for (let start = 0; start < values.length;) {
     let end = start + 1;
-    while (values[start] !== "N/A" && end < values.length && values[end] === values[start]) end += 1;
-    cells.push({ value: values[start], colspan: end - start });
+    let marked = annotations.has(start);
+    while (values[start] !== "N/A" && end < values.length && values[end] === values[start]) {
+      marked ||= annotations.has(end);
+      end += 1;
+    }
+    cells.push({ value: values[start], colspan: end - start, mcaName: marked ? mcaName : "" });
     start = end;
   }
   return cells;
+}
+
+async function loadMcaNames(file = MCA_NAMES_INPUT) {
+  let document;
+  try {
+    document = JSON.parse(await fs.readFile(file, "utf8"));
+  } catch (error) {
+    if (error.code === "ENOENT") return {};
+    throw error;
+  }
+  const names = document.subdivisions?.localeDisplayNames?.subdivisions;
+  if (!names || typeof names !== "object" || Array.isArray(names)) {
+    throw new Error(`${file} has no subdivisions.localeDisplayNames.subdivisions map`);
+  }
+  return names;
 }
 
 function compareEnglishNames(wikidataName, cldrName) {
@@ -258,29 +321,50 @@ function renderRows(csvRows) {
   };
 }
 
-function renderHtml(rows) {
+function renderHtml(rows, mcaNames = {}, convert = (value) => value) {
+  const mcaSourceNote = Object.keys(mcaNames).length
+    ? `. Selected territories with standardized translations from the <a href="${MCA_DATABASE_URL}">National Database for Geographical Names of China</a>`
+    : "";
   const lines = [
     "<!doctype html>",
     '<html lang="en">',
     "<head>",
     '<meta charset="utf-8">',
     "<title>Wikidata and CLDR subdivision names</title>",
-    "<style>th:nth-child(n+3), td:nth-child(n+3) { text-align: center; } td.merged { background-color: #fff2cc; border: 1px solid #d6b656; } td.near-match { background-color: #fff8e6; border: 1px solid #e7ddb8; } span.near-match-char { background-color: #e8b4b4; white-space: pre-wrap; }</style>",
+    "<style>th:nth-child(n+3), td:nth-child(n+3) { text-align: center; } tr.country-heading th { text-align: center; background-color: #f2f2f2; border-top: 2px solid #888; } td.merged { background-color: #fff2cc; border: 1px solid #d6b656; } td.near-match { background-color: #fff8e6; border: 1px solid #e7ddb8; } span.near-match-char { background-color: #e8b4b4; white-space: pre-wrap; } small.mca-label { display: block; font-size: 0.8em; margin-top: 0.15em; background-color: #e8b4b4; }</style>",
     "</head>",
     "<body>",
     "<table>",
-    `<caption>Wikidata subdivision labels; <a href="${UPSTREAM_QUERY}">upstream CLDR query</a></caption>`,
+    `<caption>Wikidata subdivision labels; <a href="${UPSTREAM_QUERY}">upstream CLDR query</a>${mcaSourceNote}</caption>`,
     "<thead><tr><th>item</th><th>code</th><th>name_en_cldr</th><th>name_en_wikidata</th><th>name_zh-cn</th><th>name_zh</th><th>name_zh-tw</th></tr></thead>",
     "<tbody>",
   ];
 
+  const mcaCountries = new Set(Object.entries(mcaNames)
+    .filter(([, name]) => typeof name === "string" && name.trim())
+    .map(([key]) => key.slice(0, 2).toUpperCase()));
+  let previousCountry = "";
   for (const subdivision of rows) {
     const { item, code, cldrName, names } = subdivision;
+    const country = code.match(/^([A-Z]{2})-/)?.[1] || "";
+    if (country && country !== previousCountry) {
+      const countryNameEn = CLDR_COUNTRY_NAMES_EN[country];
+      const countryNameZh = CLDR_COUNTRY_NAMES_ZH[country];
+      if (!countryNameEn || !countryNameZh) throw new Error(`Missing CLDR country name for ${country}`);
+      lines.push(`<tr class="country-heading"><th colspan="2">${escapeHtml(country)}</th><th colspan="2">${escapeHtml(countryNameEn)}</th><th colspan="3">${escapeHtml(countryNameZh)}</th></tr>`);
+      previousCountry = country;
+    }
     const itemId = item ? item.slice(item.lastIndexOf("/") + 1) : "";
     const wikidataEnglishName = names.en || "";
     const wikidataEnglish = wikidataEnglishName || "N/A";
     const englishMatch = compareEnglishNames(wikidataEnglishName, cldrName);
-    const zhNames = ["zh-cn", "zh", "zh-tw"].map((language) => names[language] || "N/A");
+    const zhNames = CHINESE_LANGUAGES.map((language) => names[language] || "N/A");
+    const mcaName = mcaNames[codeToCldrKey(code)];
+    const hasMcaName = typeof mcaName === "string" && Boolean(mcaName.trim());
+    const displayedMcaName = hasMcaName ? mcaName : mcaCountries.has(country) ? "N/A" : "";
+    const annotations = hasMcaName
+      ? mcaAnnotationIndices(zhNames, mcaName, country, convert)
+      : displayedMcaName ? new Set([0]) : new Set();
     lines.push("<tr>");
     lines.push(item ? `<td><a href="${escapeHtml(item)}">${escapeHtml(itemId)}</a></td>` : "<td>N/A</td>");
     lines.push(`<td>${escapeHtml(code)}</td>`);
@@ -300,10 +384,11 @@ function renderHtml(rows) {
       lines.push(`<td${wikidataClass}>${renderName(wikidataEnglish, difference?.wikidata)}</td>`);
     }
 
-    for (const cell of mergeableNames(zhNames)) {
+    for (const cell of mergeableNames(zhNames, annotations, displayedMcaName)) {
       const merged = cell.colspan > 1 ? ' class="merged"' : "";
       const span = cell.colspan > 1 ? ` colspan="${cell.colspan}"` : "";
-      lines.push(`<td${merged}${span}>${escapeHtml(cell.value)}</td>`);
+      const mcaMarkup = cell.mcaName ? `<br><small class="mca-label">${escapeHtml(cell.mcaName)}</small>` : "";
+      lines.push(`<td${merged}${span}>${escapeHtml(cell.value)}${mcaMarkup}</td>`);
     }
     lines.push("</tr>");
   }
@@ -316,12 +401,20 @@ async function main() {
   const input = process.argv[2] ? path.resolve(process.argv[2]) : INPUT;
   const output = process.argv[3] ? path.resolve(process.argv[3]) : OUTPUT;
   const csvRows = parseCsv(await fs.readFile(input, "utf8"));
+  const mcaNames = await loadMcaNames();
+  const convert = Object.keys(mcaNames).length
+    ? OpenCC.Converter({ from: "t", to: "cn" })
+    : (value) => value;
   const { rows, skipped, added } = renderRows(csvRows);
-  await fs.writeFile(output, renderHtml(rows), "utf8");
-  console.log(`Wrote ${rows.length} HTML rows to ${output}; added ${added} CLDR-only rows and skipped ${skipped} CSV rows without a CLDR code`);
+  await fs.writeFile(output, renderHtml(rows, mcaNames, convert), "utf8");
+  console.log(`Wrote ${rows.length} HTML rows to ${output}; added ${added} CLDR-only rows, skipped ${skipped} CSV rows without a CLDR code, and read ${Object.keys(mcaNames).length} MCA labels`);
 }
 
-main().catch((error) => {
-  console.error(`HTML generation failed: ${error.message}`);
-  process.exitCode = 1;
-});
+module.exports = { loadMcaNames, mcaAnnotationIndices, normalizeForms, renderHtml, renderRows };
+
+if (require.main === module) {
+  main().catch((error) => {
+    console.error(`HTML generation failed: ${error.message}`);
+    process.exitCode = 1;
+  });
+}
