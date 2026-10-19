@@ -18,11 +18,13 @@ const MCA_NAMES_INPUT = path.join(__dirname, "mca_subdivisions_zh.json");
 const CHINESE_LANGUAGES = ["zh-cn", "zh", "zh-tw"];
 const IGNORED_TERMINAL_SUFFIXES = {
   AU: ["州"],
+  FR: ["大区", "省"],
   IT: ["首都广域市", "广域市", "大区", "区", "省"],
   JP: ["县"],
   MX: ["州"],
   MY: ["州"],
   TH: ["府"],
+  TR: ["省"],
   US: ["州"],
 };
 const UPSTREAM_QUERY = "https://github.com/unicode-org/cldr/blob/main/tools/cldr-rdf/src/main/resources/org/unicode/cldr/rdf/sparql/wikidata-wikisubdivisionLanguages.sparql";
