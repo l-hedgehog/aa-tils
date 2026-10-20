@@ -17,15 +17,15 @@ const OUTPUT = path.join(__dirname, "wikiSubdivisionLanguages.html");
 const MCA_NAMES_INPUT = path.join(__dirname, "mca_subdivisions_zh.json");
 const CHINESE_LANGUAGES = ["zh-cn", "zh", "zh-tw"];
 const IGNORED_TERMINAL_SUFFIXES = {
-  AU: ["州"],
+  DE: ["市", "州"],
   FR: ["大区", "省"],
-  IT: ["首都广域市", "广域市", "大区", "区", "省"],
+  GR: ["大区"],
+  IT: ["首都广域市", "广域市", "大区", "省"],
   JP: ["县"],
-  MX: ["州"],
+  KR: ["特别市", "广域市"],
   MY: ["州"],
   TH: ["府"],
   TR: ["省"],
-  US: ["州"],
 };
 const UPSTREAM_QUERY = "https://github.com/unicode-org/cldr/blob/main/tools/cldr-rdf/src/main/resources/org/unicode/cldr/rdf/sparql/wikidata-wikisubdivisionLanguages.sparql";
 const MCA_DATABASE_URL = "https://dmfw.mca.gov.cn/foreign.html";
@@ -90,30 +90,42 @@ function codeToCldrKey(code) {
   return code.toLowerCase().replace(/-/g, "");
 }
 
-function normalize(value, country, convert) {
+function normalize(value, convert) {
   let text = convert(String(value ?? "").normalize("NFKC"));
   text = text.replace(/\p{Pd}/gu, "-").replace(/洲/gu, "州");
   text = text.replace(/[（(][^）)]*[）)]/gu, "");
-  const suffixes = [...(IGNORED_TERMINAL_SUFFIXES[country] || [])]
-    .sort((left, right) => right.length - left.length);
-  if (suffixes.length) {
-    text = text.replace(new RegExp(`(?:${suffixes.join("|")})+$`, "u"), "");
-  }
   return text.replace(/\s+/gu, "");
 }
 
-function normalizeForms(value, country, convert) {
+function normalizeForms(value, _country, convert) {
   const text = String(value ?? "").normalize("NFKC");
   const aliases = [...text.matchAll(/\(([^()]*)\)/gu)].map((match) => match[1]);
   const main = text.replace(/\([^()]*\)/gu, "");
-  return new Set([main, ...aliases].map((candidate) => normalize(candidate, country, convert)).filter(Boolean));
+  return new Set([main, ...aliases].map((candidate) => normalize(candidate, convert)).filter(Boolean));
+}
+
+function normalizedFormsMatch(leftForms, rightForms, suffixes) {
+  for (const left of leftForms) {
+    for (const right of rightForms) {
+      if (left === right) return true;
+      for (const suffix of suffixes) {
+        if (left.length > suffix.length && left.endsWith(suffix) &&
+            left.slice(0, -suffix.length) === right) return true;
+        if (right.length > suffix.length && right.endsWith(suffix) &&
+            right.slice(0, -suffix.length) === left) return true;
+      }
+    }
+  }
+  return false;
 }
 
 function mcaAnnotationIndices(wikidataNames, mcaName, country, convert) {
   if (!mcaName) return new Set();
   const mcaForms = normalizeForms(mcaName, country, convert);
+  const suffixes = (IGNORED_TERMINAL_SUFFIXES[country] || [])
+    .map((suffix) => normalize(suffix, convert)).filter(Boolean);
   const hasMatch = wikidataNames.some((name) => name !== "N/A" &&
-    [...mcaForms].some((form) => normalizeForms(name, country, convert).has(form)));
+    normalizedFormsMatch(normalizeForms(name, country, convert), mcaForms, suffixes));
   return hasMatch ? new Set() : new Set([0]);
 }
 
@@ -265,6 +277,21 @@ function renderName(value, highlightIndices) {
     .join("");
 }
 
+function containedSubdivisionKeys(country) {
+  const keys = new Set();
+  const visited = new Set();
+  function visit(parent) {
+    if (visited.has(parent)) return;
+    visited.add(parent);
+    for (const child of CLDR_CONTAINMENT[parent]?._contains || []) {
+      keys.add(child);
+      visit(child);
+    }
+  }
+  visit(country);
+  return keys;
+}
+
 function renderRows(csvRows) {
   if (!csvRows.length || HEADERS.some((header, i) => csvRows[0][i] !== header)) {
     throw new Error(`CSV header must be ${HEADERS.join(",")}`);
@@ -273,6 +300,13 @@ function renderRows(csvRows) {
   const subdivisions = new Map();
   const presentCodes = new Set();
   const countries = new Set();
+  const containmentByCountry = new Map();
+  const getContainedKeys = (country) => {
+    if (!containmentByCountry.has(country)) {
+      containmentByCountry.set(country, containedSubdivisionKeys(country));
+    }
+    return containmentByCountry.get(country);
+  };
   let skipped = 0;
   for (const values of csvRows.slice(1)) {
     if (values.length !== HEADERS.length) {
@@ -281,8 +315,9 @@ function renderRows(csvRows) {
     const [item, label, code, language] = values;
     const country = code.match(/^([A-Z]{2})-/)?.[1];
     if (country) countries.add(country);
-    const cldrName = CLDR_NAMES[codeToCldrKey(code)];
-    if (typeof cldrName !== "string") {
+    const cldrKey = codeToCldrKey(code);
+    const cldrName = CLDR_NAMES[cldrKey];
+    if (!country || !getContainedKeys(country).has(cldrKey) || typeof cldrName !== "string") {
       skipped += 1;
       continue;
     }
@@ -298,23 +333,15 @@ function renderRows(csvRows) {
   }
   let added = 0;
   for (const country of countries) {
-    const visited = new Set();
-    const addMissingDescendants = (parent) => {
-      if (visited.has(parent)) return;
-      visited.add(parent);
-      for (const child of CLDR_CONTAINMENT[parent]?._contains || []) {
-        if (Object.hasOwn(CLDR_NAMES, child)) {
-          const code = `${country}-${child.slice(2).toUpperCase()}`;
-          if (!presentCodes.has(code)) {
-            subdivisions.set(`${code}\u0000`, { item: "", code, cldrName: CLDR_NAMES[child], names: {} });
-            presentCodes.add(code);
-            added += 1;
-          }
-        }
-        addMissingDescendants(child);
+    for (const child of getContainedKeys(country)) {
+      if (!Object.hasOwn(CLDR_NAMES, child)) continue;
+      const code = `${country}-${child.slice(2).toUpperCase()}`;
+      if (!presentCodes.has(code)) {
+        subdivisions.set(`${code}\u0000`, { item: "", code, cldrName: CLDR_NAMES[child], names: {} });
+        presentCodes.add(code);
+        added += 1;
       }
-    };
-    addMissingDescendants(country);
+    }
   }
   return {
     rows: [...subdivisions.values()].sort((a, b) => a.code.localeCompare(b.code) || a.item.localeCompare(b.item)),
@@ -409,7 +436,7 @@ async function main() {
     : (value) => value;
   const { rows, skipped, added } = renderRows(csvRows);
   await fs.writeFile(output, renderHtml(rows, mcaNames, convert), "utf8");
-  console.log(`Wrote ${rows.length} HTML rows to ${output}; added ${added} CLDR-only rows, skipped ${skipped} CSV rows without a CLDR code, and read ${Object.keys(mcaNames).length} MCA labels`);
+  console.log(`Wrote ${rows.length} HTML rows to ${output}; added ${added} CLDR-only rows, skipped ${skipped} CSV rows without a CLDR name or outside country containment, and read ${Object.keys(mcaNames).length} MCA labels`);
 }
 
 module.exports = { loadMcaNames, mcaAnnotationIndices, normalizeForms, renderHtml, renderRows };
