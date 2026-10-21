@@ -24,7 +24,6 @@ const IGNORED_TERMINAL_SUFFIXES = {
   JP: ["县"],
   KR: ["特别市", "广域市"],
   MY: ["州"],
-  TH: ["府"],
   TR: ["省"],
 };
 const UPSTREAM_QUERY = "https://github.com/unicode-org/cldr/blob/main/tools/cldr-rdf/src/main/resources/org/unicode/cldr/rdf/sparql/wikidata-wikisubdivisionLanguages.sparql";
